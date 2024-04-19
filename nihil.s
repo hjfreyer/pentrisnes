@@ -26,7 +26,7 @@ RDNMI       = $4210     ; read the NMI flag status
 
 ;----- Includes ----------------------------------------------------------------
 .segment "SPRITEDATA"
-SpriteData: .incbin "sprites/check.vra"
+SpriteData: .incbin "out/sprites.vra"
 ColorData:  .incbin "out/colors.pal"
 ;-------------------------------------------------------------------------------
 
