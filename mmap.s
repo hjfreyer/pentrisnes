@@ -1,0 +1,15 @@
+INIDISP     = $2100     ; inital settings for screen
+OBJSEL      = $2101     ; object size $ object data area designation
+OAMADDL     = $2102     ; address for accessing OAM
+OAMADDH     = $2103
+OAMDATA     = $2104     ; data for OAM write
+VMAINC      = $2115     ; VRAM address increment value designation
+VMADDL      = $2116     ; address for VRAM read and write
+VMADDH      = $2117
+VMDATAL     = $2118     ; data for VRAM write
+VMDATAH     = $2119     ; data for VRAM write
+CGADD       = $2121     ; address for CGRAM read and write
+CGDATA      = $2122     ; data for CGRAM write
+TM          = $212c     ; main screen designation
+NMITIMEN    = $4200     ; enable flaog for v-blank
+RDNMI       = $4210     ; read the NMI flag status
