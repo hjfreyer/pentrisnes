@@ -14,23 +14,22 @@ class Color:
     g: int
     b: int
 
-    def as_short(self) -> int:
+    def encode(self) -> bytes:
         mask = 0b11111
         result = 0
         result |= (self.b & mask) << 10
         result |= (self.g & mask) << 5
         result |= (self.r & mask) << 0
 
-        return result
+        return struct.pack("<H", result)
 
 
 @dataclasses.dataclass
 class Palette:
     colors: list[Color]
 
-    def write_to(self, out: BufferedWriter) -> None:
-        for c in self.colors:
-            out.write(struct.pack("<H", c.as_short()))
+    def encode(self) -> bytes:
+        return b''.join(c.encode() for c in self.colors)
 
 
 def bitplane_to_rows(bp: list[list[int]]) -> list[int]:
@@ -69,12 +68,13 @@ class Sprite:
 class Sprites:
     sprites: list[Sprite]
 
-    def write_to(self, out: BufferedWriter):
-        for s in self.sprites:
-            out.write(s.encode())
-
+    def encode(self) -> bytes:
+        return b''.join(c.encode() for c in self.sprites)
+    
 
 def main():
+    consts = {}
+
     out_dir = pathlib.Path("out")
     with (out_dir / "colors.pal").open("wb") as pal_file:
         p = Palette(
@@ -82,7 +82,10 @@ def main():
             + [Color(0, 0, 0)] * 12
         )
 
-        p.write_to(pal_file)
+        p_encoded = p.encode()
+        consts['PALLET_SIZE'] = len(p_encoded)
+
+        pal_file.write(p_encoded)
 
     sp = Sprite(
         [
@@ -98,7 +101,16 @@ def main():
     )
 
     with (out_dir / "sprites.vra").open("wb") as f:
-        Sprites([sp]).write_to(f)
+        sprites = Sprites([sp]).encode()
+
+        consts['SPRITES_SIZE'] = len(sprites)
+
+        f.write(sprites)
+
+    
+    with (out_dir / "consts.s").open("w") as f:
+        for k, v in consts.items():
+            f.write(f'{k} = {v}\n')
 
 
 if __name__ == "__main__":
