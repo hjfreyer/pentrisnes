@@ -3,21 +3,7 @@
 ;   Description: Your very first SNES game!
 ; -----------------------------------------------------------------------------
 
-INIDISP     = $2100     ; inital settings for screen
-OBJSEL      = $2101     ; object size $ object data area designation
-OAMADDL     = $2102     ; address for accessing OAM
-OAMADDH     = $2103
-OAMDATA     = $2104     ; data for OAM write
-VMAINC      = $2115     ; VRAM address increment value designation
-VMADDL      = $2116     ; address for VRAM read and write
-VMADDH      = $2117
-VMDATAL     = $2118     ; data for VRAM write
-VMDATAH     = $2119     ; data for VRAM write
-CGADD       = $2121     ; address for CGRAM read and write
-CGDATA      = $2122     ; data for CGRAM write
-TM          = $212c     ; main screen designation
-NMITIMEN    = $4200     ; enable flaog for v-blank
-RDNMI       = $4210     ; read the NMI flag status
+.include "mmap.s"
 
 ;----- Assembler Directives ----------------------------------------------------
 .p816                           ; tell the assembler this is 65816 code
@@ -31,6 +17,62 @@ ColorData:  .incbin "out/colors.pal"
 ;-------------------------------------------------------------------------------
 
 
+.macro writeObj xCoord, yCoord
+        lda # xCoord       ; horizontal position of first sprite
+        sta OAMDATA
+        lda # yCoord       ; vertical position of first sprite
+        sta OAMDATA
+        lda #$00                ; name of first sprite
+        sta OAMDATA
+        lda #$00                ; no flip, prio 0, palette 0
+        sta OAMDATA
+.endmacro
+
+.macro writeGrid gridX, gridY
+        ; set up OAM data              
+        stz OAMADDL             ; set the OAM address to ...
+        stz OAMADDH             ; ...at $0000
+
+        .repeat 5, row
+                .repeat 12, col
+
+                        writeObj (gridX + (col * 9)), (gridY + row * 9)
+
+                .endrep
+        .endrep
+
+.endmacro
+
+
+; .macro writeObjMirror xCoord, yCoord
+;         lda # xCoord       ; horizontal position of first sprite
+;         sta OAMMIRROR, X
+;         inx
+;         lda # yCoord       ; vertical position of first sprite
+;         sta OAMMIRROR, X
+;         inx
+;         lda #$00                ; name of first sprite
+;         sta OAMMIRROR, X
+;         inx
+;         lda #$00                ; no flip, prio 0, palette 0
+;         sta OAMMIRROR, X
+;         inx
+; .endmacro
+
+; .macro writeGridMirror gridX, gridY
+
+;         ldx #$00
+
+;         .repeat 5, row
+;                 .repeat 12, col
+
+;                         writeObjMirror (gridX + (col * 9)), (gridY + row * 9)
+
+;                 .endrep
+;         .endrep
+
+; .endmacro
+
 .segment "CODE"
 ;-------------------------------------------------------------------------------
 ;   This is the entry point of the demo
@@ -39,9 +81,15 @@ ColorData:  .incbin "out/colors.pal"
         sei                     ; disable interrupts
         clc                     ; clear the carry flag
         xce                     ; switch the 65816 to native (16-bit mode)
+        rep #$10 
+        .i16
         lda #$8f ;#$8f                ; force v-blanking
         sta INIDISP
         stz NMITIMEN            ; disable NMI
+
+        lda #$00
+        sta BGMODE
+        
 
         ; transfer VRAM data
         stz VMADDL              ; set the VRAM address to $0000
@@ -75,18 +123,8 @@ CGRAMLoop:
 
         .byte $42, $00          ; debugger breakpoint
 
-        ; set up OAM data              
-        stz OAMADDL             ; set the OAM address to ...
-        stz OAMADDH             ; ...at $0000
         ; OAM data for first sprite
-        lda # (256/2 - 8)       ; horizontal position of first sprite
-        sta OAMDATA
-        lda # (224/2 - 8)       ; vertical position of first sprite
-        sta OAMDATA
-        lda #$00                ; name of first sprite
-        sta OAMDATA
-        lda #$00                ; no flip, prio 0, palette 0
-        sta OAMDATA
+        writeGrid 20, 20   
         ; ; OAM data for second sprite
         ; lda # (256/2)           ; horizontal position of second sprite
         ; sta OAMDATA
@@ -139,6 +177,8 @@ CGRAMLoop:
         ; here we would place all of the game logic
         ; and loop forever
 
+        writeGrid 10, 10
+
         jmp GameLoop
 .endproc
 ;-------------------------------------------------------------------------------
@@ -149,9 +189,43 @@ CGRAMLoop:
 .proc   NMIHandler
         lda RDNMI               ; read NMI status, acknowledge NMI
 
+        ; writeGrid 10, 10
         ; this is where we would do graphics update
+        tsx                     ; save old stack pointer 
+        pea OAMMIRROR           ; push mirror address to stack 
+        ; jsr UpdateOAMRAM        ; update OAMRAM 
+        txs                     ; restore old stack pointer
 
         rti
+.endproc
+
+.proc   UpdateOAMRAM
+        phx                     ; save old stack pointer
+        ; create frame pointer
+        phd                     ; push Direct Register to stack
+        tsc                     ; transfer Stack to... (via Accumulator)
+        tcd                     ; ...Direct Register.
+        ; use constants to access arguments on stack with Direct Addressing
+        MirrorAddr  = $07       ; address of the mirror we want to copy
+
+        ; set up DMA channel 0 to transfer data to OAMRAM
+        lda #%00000010          ; set DMA channel 0
+        sta DMAP0
+        lda #$04                ; set destination to OAMDATA
+        sta BBAD0   
+        ldx MirrorAddr          ; get address of OAMRAM mirror
+        stx A1T0L               ; set low and high byte of address 
+        stz A1T0B               ; set bank to zero, since the mirror is in WRAM
+        ldx #$0220              ; set the number of bytes to transfer 
+        stx DAS0L
+
+        lda #$01                ; start DMA transfer 
+        sta MDMAEN
+
+        ; OAMRAM update is done, restore frame and stack pointer
+        pld                     ; restore caller's frame pointer
+        plx                     ; restore old stack pointer
+        rts                     
 .endproc
 ;-------------------------------------------------------------------------------
 
