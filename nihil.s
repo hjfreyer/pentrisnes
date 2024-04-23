@@ -7,71 +7,15 @@
 
 ;----- Assembler Directives ----------------------------------------------------
 .p816                           ; tell the assembler this is 65816 code
+.smart
 ;-------------------------------------------------------------------------------
 
-
-;----- Includes ----------------------------------------------------------------
 .segment "SPRITEDATA"
 SpriteData: .incbin "out/sprites.vra"
+SpriteData_End:
 ColorData:  .incbin "out/colors.pal"
-;-------------------------------------------------------------------------------
+ColorData_End:
 
-
-.macro writeObj xCoord, yCoord
-        lda # xCoord       ; horizontal position of first sprite
-        sta OAMDATA
-        lda # yCoord       ; vertical position of first sprite
-        sta OAMDATA
-        lda #$00                ; name of first sprite
-        sta OAMDATA
-        lda #$00                ; no flip, prio 0, palette 0
-        sta OAMDATA
-.endmacro
-
-.macro writeGrid gridX, gridY
-        ; set up OAM data              
-        stz OAMADDL             ; set the OAM address to ...
-        stz OAMADDH             ; ...at $0000
-
-        .repeat 5, row
-                .repeat 12, col
-
-                        writeObj (gridX + (col * 9)), (gridY + row * 9)
-
-                .endrep
-        .endrep
-
-.endmacro
-
-
-; .macro writeObjMirror xCoord, yCoord
-;         lda # xCoord       ; horizontal position of first sprite
-;         sta OAMMIRROR, X
-;         inx
-;         lda # yCoord       ; vertical position of first sprite
-;         sta OAMMIRROR, X
-;         inx
-;         lda #$00                ; name of first sprite
-;         sta OAMMIRROR, X
-;         inx
-;         lda #$00                ; no flip, prio 0, palette 0
-;         sta OAMMIRROR, X
-;         inx
-; .endmacro
-
-; .macro writeGridMirror gridX, gridY
-
-;         ldx #$00
-
-;         .repeat 5, row
-;                 .repeat 12, col
-
-;                         writeObjMirror (gridX + (col * 9)), (gridY + row * 9)
-
-;                 .endrep
-;         .endrep
-
-; .endmacro
 
 .segment "CODE"
 ;-------------------------------------------------------------------------------
@@ -82,16 +26,16 @@ ColorData:  .incbin "out/colors.pal"
         clc                     ; clear the carry flag
         xce                     ; switch the 65816 to native (16-bit mode)
         rep #$10 
-        .i16
-        lda #$8f ;#$8f                ; force v-blanking
+        sep #$20 
+        lda #$8f                ; force v-blanking
         sta INIDISP
         stz NMITIMEN            ; disable NMI
 
-        lda #$00
-        sta BGMODE
-        
+        ; jsr DMA_Tiles
+        jsr DMA_Palette
+        ; jsr DMA_Tilemap
 
-        ; transfer VRAM data
+
         stz VMADDL              ; set the VRAM address to $0000
         stz VMADDH
         lda #$80
@@ -104,58 +48,46 @@ VRAMLoop:
         lda SpriteData, X       ; get bitplane 1/3 byte from the sprite data
         sta VMDATAH             ; write the byte in A to VRAM
         inx                     ; increment counter/offset
-        cpx #$20                ; check whether we have written $04 * $20 = $80 bytes to VRAM (four sprites)
+        cpx #(SpriteData_End - SpriteData)                ; check whether we have written $04 * $20 = $80 bytes to VRAM (four sprites)
         bcc VRAMLoop            ; if X is smaller than $80, continue the loop
-
-        ; transfer CGRAM data
-        lda #$80
-        sta CGADD               ; set CGRAM address to $80
-        ldx #$00                ; set X to zero, use it as loop counter and offset
-CGRAMLoop:
-        lda ColorData, X        ; get the color low byte
-        sta CGDATA              ; store it in CGRAM
-        inx                     ; increase counter/offset
-        lda ColorData, X        ; get the color high byte
-        sta CGDATA              ; store it in CGRAM
-        inx                     ; increase counter/offset
-        cpx #$20                ; check whether 32/$20 bytes were transfered
-        bcc CGRAMLoop           ; if not, continue loop
+	
 
         .byte $42, $00          ; debugger breakpoint
 
-        ; OAM data for first sprite
-        writeGrid 20, 20   
-        ; ; OAM data for second sprite
-        ; lda # (256/2)           ; horizontal position of second sprite
-        ; sta OAMDATA
-        ; lda # (224/2 - 8)       ; vertical position of second sprite
-        ; sta OAMDATA
-        ; lda #$01                ; name of second sprite
-        ; sta OAMDATA
-        ; lda #$00                ; no flip, prio 0, palette 0
-        ; sta OAMDATA
-        ; ; OAM data for third sprite
-        ; lda # (256/2 - 8)       ; horizontal position of third sprite
-        ; sta OAMDATA
-        ; lda # (224/2)           ; vertical position of third sprite
-        ; sta OAMDATA
-        ; lda #$02                ; name of third sprite
-        ; sta OAMDATA
-        ; lda #$00                ; no flip, prio 0, palette 0
-        ; sta OAMDATA
-        ; ; OAM data for fourth sprite
-        ; lda # (256/2)           ; horizontal position of fourth sprite
-        ; sta OAMDATA
-        ; lda # (224/2)           ; vertical position of fourth sprite
-        ; sta OAMDATA
-        ; lda #$03                ; name of fourth sprite
-        ; sta OAMDATA
-        ; lda #$00                ; no flip, prio 0, palette 0
-        ; sta OAMDATA
 
-        ; make Objects visible
-        lda #$10
-        sta TM
+	lda #$00
+	sta VMADDL ; $2116 set an address in the vram of $6000
+        lda #$60
+	sta VMADDH ; $2116 set an address in the vram of $6000
+        
+        lda #$80
+        sta VMAINC              ; increment VRAM address by 1 when writing to VMDATAH
+        
+.repeat 6, PAL
+.repeat 5, SPR
+        lda #SPR
+        sta VMDATAL
+        lda #(PAL << 2)
+        sta VMDATAH
+.endrep
+.endrep
+      
+	lda #1 ; mode 1, tilesize 8x8 all
+	sta BGMODE ; $2105
+	
+; 210b = tilesets for bg 1 and bg 2
+; (210c for bg 3 and bg 4)
+; steps of $1000 -321-321... bg2 bg1
+	stz BG12NBA ; $210b BG 1 and 2 TILES at VRAM address $0000
+	
+	; 2107 map address bg 1, steps of $400... -54321yx
+	; y/x = map size... 0,0 = 32x32 tiles
+	; $6000 / $100 = $60
+	lda #$60 ; bg1 map at VRAM address $6000
+	sta BG1SC ; $2107
+
+	lda #BG1_ON	; $01 = only bg 1 is active
+	sta TM
         ; release forced blanking, set screen to full brightness
         lda #$0f
         sta INIDISP
@@ -165,7 +97,63 @@ CGRAMLoop:
 
         jmp GameLoop            ; all initialization is done
 .endproc
+
+; .proc DMA_Tiles
+; 	lda #1
+; 	sta $4300 ; transfer mode, 2 registers 1 write
+; 			  ; $2118 and $2119 are a pair Low/High
+; 	lda #<VMDATAL  ; $2118
+; 	sta BBAD0 ; destination, vram data
+; 	ldx #.loword(SpriteData)
+; 	stx $4302 ; source
+; 	lda #^Tiles
+; 	sta $4304 ; bank
+; 	ldx #(SpriteData_End-SpriteData)
+; 	stx $4305 ; length
+; 	lda #1
+; 	sta MDMAEN ; $420b start dma, channel 0
+;         rts
+; .endproc
+
+.proc DMA_Palette
+	stz CGADD ; $2121 cgram address = zero
+	
+	stz DMAP0 ; transfer mode 0 = 1 register write once
+	lda #<CGDATA  ; $2122
+	sta BBAD0 ; destination, cgram data
+	ldx #.loword(ColorData)
+	stx A1T0L ; source
+	lda #^ColorData
+	sta A1T0B ; bank
+	ldx #(ColorData_End - ColorData)
+	stx DAS0L ; length
+	lda #1
+	sta MDMAEN ; $420b start dma, channel 0
+        rts
+.endproc
+
+; .proc DMA_Tilemap
+;         ldx #$6000
+; 	stx VMADDL ; $2116 set an address in the vram of $6000
+	
+; 	lda #1
+; 	sta $4300 ; transfer mode, 2 registers 1 write
+; 			  ; $2118 and $2119 are a pair Low/High
+; 	lda #$18  ; $2118
+; 	sta $4301 ; destination, vram data
+; 	ldx #.loword(Tilemap)
+; 	stx $4302 ; source
+; 	lda #^Tilemap
+; 	sta $4304 ; bank
+; 	ldx #$700
+; 	stx $4305 ; length
+; 	lda #1
+; 	sta MDMAEN ; $420b start dma, channel 0	
+;         rts
+; .endproc
+
 ;-------------------------------------------------------------------------------
+; .include "header.asm"	
 
 ;-------------------------------------------------------------------------------
 ;   After the ResetHandler will jump to here
@@ -177,7 +165,7 @@ CGRAMLoop:
         ; here we would place all of the game logic
         ; and loop forever
 
-        writeGrid 10, 10
+        ; writeGrid 10, 10
 
         jmp GameLoop
 .endproc
@@ -191,43 +179,15 @@ CGRAMLoop:
 
         ; writeGrid 10, 10
         ; this is where we would do graphics update
-        tsx                     ; save old stack pointer 
-        pea OAMMIRROR           ; push mirror address to stack 
-        ; jsr UpdateOAMRAM        ; update OAMRAM 
-        txs                     ; restore old stack pointer
+        ; tsx                     ; save old stack pointer 
+        ; pea OAMMIRROR           ; push mirror address to stack 
+        ; ; jsr UpdateOAMRAM        ; update OAMRAM 
+        ; txs                     ; restore old stack pointer
 
         rti
 .endproc
 
-.proc   UpdateOAMRAM
-        phx                     ; save old stack pointer
-        ; create frame pointer
-        phd                     ; push Direct Register to stack
-        tsc                     ; transfer Stack to... (via Accumulator)
-        tcd                     ; ...Direct Register.
-        ; use constants to access arguments on stack with Direct Addressing
-        MirrorAddr  = $07       ; address of the mirror we want to copy
 
-        ; set up DMA channel 0 to transfer data to OAMRAM
-        lda #%00000010          ; set DMA channel 0
-        sta DMAP0
-        lda #$04                ; set destination to OAMDATA
-        sta BBAD0   
-        ldx MirrorAddr          ; get address of OAMRAM mirror
-        stx A1T0L               ; set low and high byte of address 
-        stz A1T0B               ; set bank to zero, since the mirror is in WRAM
-        ldx #$0220              ; set the number of bytes to transfer 
-        stx DAS0L
-
-        lda #$01                ; start DMA transfer 
-        sta MDMAEN
-
-        ; OAMRAM update is done, restore frame and stack pointer
-        pld                     ; restore caller's frame pointer
-        plx                     ; restore old stack pointer
-        rts                     
-.endproc
-;-------------------------------------------------------------------------------
 
 ;-------------------------------------------------------------------------------
 ;   Is not used in this program

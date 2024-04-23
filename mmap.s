@@ -44,5 +44,12 @@ OAMMIRROR   = $0400     ; location of OAMRAM mirror in WRAM
 OAMMIRROR_SIZE  = $0220 ; OAMRAM can hold data for 128 sprites, 4 bytes each
 ;-------------------------------------------------------------------------------
 
-BGMODE = $2105
-BGnSC = $2107
+FULL_BRIGHT = $0f
+BG1_ON = 1
+BG1SC = $2107 ;BG1 Tilemap Address and Size
+BG12NBA = $210b ;BG1 and 2 Chr Address
+BGMODE = $2105 ;BG Mode and Character Size
+; VMAIN = $2115 ;Video Port Control
+
+V_INC_1 = $80 ;vram address +1
+
