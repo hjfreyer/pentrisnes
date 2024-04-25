@@ -53,3 +53,5 @@ BGMODE = $2105 ;BG Mode and Character Size
 
 V_INC_1 = $80 ;vram address +1
 
+VRAM_TILES = $0000
+VRAM_TILEMAP = $6000

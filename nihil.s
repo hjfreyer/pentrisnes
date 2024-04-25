@@ -16,6 +16,10 @@ SpriteData_End:
 ColorData:  .incbin "out/colors.pal"
 ColorData_End:
 
+.BSS
+MinoMap:
+        .res 32 * 20
+MinoMap_End:
 
 .segment "CODE"
 ;-------------------------------------------------------------------------------
@@ -25,50 +29,20 @@ ColorData_End:
         sei                     ; disable interrupts
         clc                     ; clear the carry flag
         xce                     ; switch the 65816 to native (16-bit mode)
-        rep #$10 
-        sep #$20 
+        rep #$10                ; Set X, Y to 16-bit
+        sep #$20                ; Set A to 8-bit
         lda #$8f                ; force v-blanking
         sta INIDISP
         stz NMITIMEN            ; disable NMI
 
-        ; jsr DMA_Tiles
+        jsr DMA_Tiles
         jsr DMA_Palette
-        ; jsr DMA_Tilemap
 
-
-        stz VMADDL              ; set the VRAM address to $0000
-        stz VMADDH
-        lda #$80
-        sta VMAINC              ; increment VRAM address by 1 when writing to VMDATAH
-        ldx #$00                ; set register X to zero, we will use X as a loop counter and offset
-VRAMLoop:
-        lda SpriteData, X       ; get bitplane 0/2 byte from the sprite data
-        sta VMDATAL             ; write the byte in A to VRAM
-        inx                     ; increment counter/offset
-        lda SpriteData, X       ; get bitplane 1/3 byte from the sprite data
-        sta VMDATAH             ; write the byte in A to VRAM
-        inx                     ; increment counter/offset
-        cpx #(SpriteData_End - SpriteData)                ; check whether we have written $04 * $20 = $80 bytes to VRAM (four sprites)
-        bcc VRAMLoop            ; if X is smaller than $80, continue the loop
-	
-
-        .byte $42, $00          ; debugger breakpoint
-
-
-	lda #$00
-	sta VMADDL ; $2116 set an address in the vram of $6000
-        lda #$60
-	sta VMADDH ; $2116 set an address in the vram of $6000
-        
-        lda #$80
-        sta VMAINC              ; increment VRAM address by 1 when writing to VMDATAH
-        
+        ; Set up demo MinoMap
 .repeat 6, PAL
 .repeat 5, SPR
-        lda #SPR
-        sta VMDATAL
-        lda #(PAL << 2)
-        sta VMDATAH
+        lda #(SPR+1)
+        sta MinoMap + (PAL * 33) +SPR
 .endrep
 .endrep
       
@@ -98,22 +72,28 @@ VRAMLoop:
         jmp GameLoop            ; all initialization is done
 .endproc
 
-; .proc DMA_Tiles
-; 	lda #1
-; 	sta $4300 ; transfer mode, 2 registers 1 write
-; 			  ; $2118 and $2119 are a pair Low/High
-; 	lda #<VMDATAL  ; $2118
-; 	sta BBAD0 ; destination, vram data
-; 	ldx #.loword(SpriteData)
-; 	stx $4302 ; source
-; 	lda #^Tiles
-; 	sta $4304 ; bank
-; 	ldx #(SpriteData_End-SpriteData)
-; 	stx $4305 ; length
-; 	lda #1
-; 	sta MDMAEN ; $420b start dma, channel 0
-;         rts
-; .endproc
+.proc DMA_Tiles
+        ldx #VRAM_TILES
+        stx VMADDL              ; set the VRAM address to VRAM_TILES
+
+        lda #V_INC_1
+        sta VMAINC              ; increment VRAM address by 1 when writing to VMDATAH
+
+	lda #1
+	sta DMAP0 ; transfer mode, 2 registers 1 write
+	
+        lda #<VMDATAL  ; $2118
+	sta BBAD0 ; destination, vram data
+	ldx #.loword(SpriteData)
+	stx A1T0L ; source
+	lda #^SpriteData
+	sta A1T0B ; bank
+	ldx #(SpriteData_End-SpriteData)
+	stx DAS0L ; length
+	lda #1
+	sta MDMAEN ; $420b start dma, channel 0
+        rts
+.endproc
 
 .proc DMA_Palette
 	stz CGADD ; $2121 cgram address = zero
@@ -132,33 +112,9 @@ VRAMLoop:
         rts
 .endproc
 
-; .proc DMA_Tilemap
-;         ldx #$6000
-; 	stx VMADDL ; $2116 set an address in the vram of $6000
-	
-; 	lda #1
-; 	sta $4300 ; transfer mode, 2 registers 1 write
-; 			  ; $2118 and $2119 are a pair Low/High
-; 	lda #$18  ; $2118
-; 	sta $4301 ; destination, vram data
-; 	ldx #.loword(Tilemap)
-; 	stx $4302 ; source
-; 	lda #^Tilemap
-; 	sta $4304 ; bank
-; 	ldx #$700
-; 	stx $4305 ; length
-; 	lda #1
-; 	sta MDMAEN ; $420b start dma, channel 0	
-;         rts
-; .endproc
-
-;-------------------------------------------------------------------------------
-; .include "header.asm"	
-
 ;-------------------------------------------------------------------------------
 ;   After the ResetHandler will jump to here
 ;-------------------------------------------------------------------------------
-; .smart ; keep track of registers widths
 .proc   GameLoop
         wai                     ; wait for NMI / V-Blank
 
@@ -177,17 +133,27 @@ VRAMLoop:
 .proc   NMIHandler
         lda RDNMI               ; read NMI status, acknowledge NMI
 
-        ; writeGrid 10, 10
-        ; this is where we would do graphics update
-        ; tsx                     ; save old stack pointer 
-        ; pea OAMMIRROR           ; push mirror address to stack 
-        ; ; jsr UpdateOAMRAM        ; update OAMRAM 
-        ; txs                     ; restore old stack pointer
+        ; .byte $42, $00          ; debugger breakpoint
+
+        ; Update tilemap based on MinoMap
+
+	ldx #VRAM_TILEMAP
+	stx VMADDL              ; Write to the tilemap
+        
+        lda #V_INC_1
+        sta VMAINC              ; increment VRAM address by 1 when writing to VMDATAH
+
+        ldx #$00                 ; Index into MinoMap
+Minoloop:
+        lda MinoMap, X
+        sta VMDATAL
+        stz VMDATAH
+        inx
+        cpx #(MinoMap_End - MinoMap)
+        bcc Minoloop
 
         rti
 .endproc
-
-
 
 ;-------------------------------------------------------------------------------
 ;   Is not used in this program
