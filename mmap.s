@@ -13,9 +13,14 @@ VMDATAH     = $2119
 CGADD       = $2121     ; address for CGRAM read and write
 CGDATA      = $2122     ; data for CGRAM write
 TM          = $212c     ; main screen designation
+
 NMITIMEN    = $4200     ; enable flaog for v-blank
 MDMAEN      = $420b     ; DMA enable register
 RDNMI       = $4210     ; read the NMI flag status
+HVBJOY      = $4212     ; H/V blank flags and standard controller enable flag
+JOY1L       = $4218     ; data for standard controller I
+JOY1H       = $4219
+
 DMAP0       = $4300     ; DMA control register, channel 0
 BBAD0       = $4301     ; DMA destination register, channel 0
 A1T0L       = $4302     ; DMA source address register low, channel 0
@@ -55,3 +60,10 @@ V_INC_1 = $80 ;vram address +1
 
 VRAM_TILES = $0000
 VRAM_TILEMAP = $6000
+
+
+; Constants
+UP_BUTTON       = $0800
+DOWN_BUTTON     = $0400
+LEFT_BUTTON     = $0200
+RIGHT_BUTTON    = $0100

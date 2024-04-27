@@ -17,9 +17,9 @@ ColorData:  .incbin "out/colors.pal"
 ColorData_End:
 
 .BSS
-MinoMap:
-        .res 32 * 20
-MinoMap_End:
+TilemapMirror:
+        .res 2 * 32 * 32
+TilemapMirror_End:
 
 .segment "CODE"
 ;-------------------------------------------------------------------------------
@@ -35,14 +35,25 @@ MinoMap_End:
         sta INIDISP
         stz NMITIMEN            ; disable NMI
 
+        ; set the stack pointer to $1fff
+        ldx #$1fff              ; load X with $1fff
+        txs                     ; copy X to stack pointer
+
         jsr DMA_Tiles
         jsr DMA_Palette
 
-        ; Set up demo MinoMap
+        ldx #$00
+TilemapBlank:
+        stz TilemapMirror, X
+        inx
+        cpx #(TilemapMirror_End - TilemapMirror)
+        bcc TilemapBlank
+
+        ; Set up demo Tilemap
 .repeat 6, PAL
 .repeat 5, SPR
-        lda #(SPR+1)
-        sta MinoMap + (PAL * 33) +SPR
+        ldx #(SPR+1)
+        stx TilemapMirror + 2*((PAL * 33) +SPR)
 .endrep
 .endrep
       
@@ -117,6 +128,30 @@ MinoMap_End:
 ;-------------------------------------------------------------------------------
 .proc   GameLoop
         wai                     ; wait for NMI / V-Blank
+        ; .byte $42, $00          ; debugger breakpoint
+
+
+        ; read joypad 1
+        ; check whether joypad is ready
+WaitForJoypad:
+        lda HVBJOY                          ; get joypad status
+        and #$01                            ; check whether joypad still reading...
+        bne WaitForJoypad                   ; ...if not, wait a bit more
+
+
+        lda JOY1H
+        and #$01
+        beq SetTile
+
+        ldx #$0000
+        stx TilemapMirror
+        jmp SkipTile
+SetTile:
+        ldx #$0001
+        stx TilemapMirror
+SkipTile:
+
+
 
         ; here we would place all of the game logic
         ; and loop forever
@@ -133,24 +168,27 @@ MinoMap_End:
 .proc   NMIHandler
         lda RDNMI               ; read NMI status, acknowledge NMI
 
-        ; .byte $42, $00          ; debugger breakpoint
+        ; Update tilemap based on mirror
 
-        ; Update tilemap based on MinoMap
+        ldx #VRAM_TILEMAP
+        stx VMADDL              ; set the VRAM address to VRAM_TILEMAP
 
-	ldx #VRAM_TILEMAP
-	stx VMADDL              ; Write to the tilemap
-        
         lda #V_INC_1
         sta VMAINC              ; increment VRAM address by 1 when writing to VMDATAH
 
-        ldx #$00                 ; Index into MinoMap
-Minoloop:
-        lda MinoMap, X
-        sta VMDATAL
-        stz VMDATAH
-        inx
-        cpx #(MinoMap_End - MinoMap)
-        bcc Minoloop
+	lda #1
+	sta DMAP0 ; transfer mode, 2 registers 1 write
+	
+        lda #<VMDATAL  ; $2118
+	sta BBAD0 ; destination, vram data
+	ldx #.loword(TilemapMirror)
+	stx A1T0L ; source
+	lda #^TilemapMirror
+	sta A1T0B ; bank
+	ldx #(TilemapMirror_End-TilemapMirror)
+	stx DAS0L ; length
+	lda #1
+	sta MDMAEN ; $420b start dma, channel 0
 
         rti
 .endproc
