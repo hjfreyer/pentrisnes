@@ -4,6 +4,7 @@
 ; -----------------------------------------------------------------------------
 
 .include "mmap.s"
+.include "macros.s"
 
 ;----- Assembler Directives ----------------------------------------------------
 .p816                           ; tell the assembler this is 65816 code
@@ -20,7 +21,7 @@ ColorData_End:
 TilemapMirror:
         .res 2 * 32 * 32
 TilemapMirror_End:
-
+ActiveOffset: .res 2
 .segment "CODE"
 ;-------------------------------------------------------------------------------
 ;   This is the entry point of the demo
@@ -41,6 +42,9 @@ TilemapMirror_End:
 
         jsr DMA_Tiles
         jsr DMA_Palette
+
+        lda #12
+        sta ActiveOffset
 
         ldx #$00
 TilemapBlank:
@@ -130,34 +134,73 @@ TilemapBlank:
         wai                     ; wait for NMI / V-Blank
         ; .byte $42, $00          ; debugger breakpoint
 
+        A16
+
+        ; Clear previously active tile.
+        lda ActiveOffset
+        asl ; Multiply offset by 2
+        tax 
+        stz TilemapMirror, X
 
         ; read joypad 1
         ; check whether joypad is ready
 WaitForJoypad:
         lda HVBJOY                          ; get joypad status
-        and #$01                            ; check whether joypad still reading...
+        and #$0001                            ; check whether joypad still reading...
         bne WaitForJoypad                   ; ...if not, wait a bit more
 
+        lda JOY1L
+        and #RIGHT_BUTTON
+        bne MoveRight
 
-        lda JOY1H
-        and #$01
-        beq SetTile
+        lda JOY1L
+        and #LEFT_BUTTON
+        bne MoveLeft
 
-        ldx #$0000
-        stx TilemapMirror
-        jmp SkipTile
-SetTile:
-        ldx #$0001
-        stx TilemapMirror
-SkipTile:
+        lda JOY1L
+        and #DOWN_BUTTON
+        bne MoveDown
 
+        lda JOY1L
+        and #UP_BUTTON
+        bne MoveUp
 
+        jmp MoveEnd
 
-        ; here we would place all of the game logic
-        ; and loop forever
+MoveLeft:
+        lda ActiveOffset
+        dec
+        sta ActiveOffset
+        jmp MoveEnd
 
-        ; writeGrid 10, 10
+MoveRight:
+        lda ActiveOffset
+        inc
+        sta ActiveOffset
+        jmp MoveEnd
 
+MoveDown:
+        lda ActiveOffset
+        clc
+        adc #$20
+        sta ActiveOffset
+        jmp MoveEnd
+
+MoveUp:
+        lda ActiveOffset
+        sec
+        sbc #$20
+        sta ActiveOffset
+        jmp MoveEnd
+
+MoveEnd:
+        lda ActiveOffset
+        asl ; Multiply offset by 2
+        tax 
+        lda #$0002
+        sta TilemapMirror, X
+
+        A8              ; Back to 8 bit
         jmp GameLoop
 .endproc
 ;-------------------------------------------------------------------------------
