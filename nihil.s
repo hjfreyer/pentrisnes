@@ -138,6 +138,21 @@ TilemapBlank:
 
         A16
 
+        ; Reset the board enclosure.
+        lda #$0001
+.repeat 20, Row
+.repeat (32-12), Col
+
+        sta TilemapMirror + (Row * 32 + Col + 12) * 2 
+.endrep
+.endrep
+
+.repeat (32-20), Row
+.repeat 32, Col
+        sta TilemapMirror + ((20+Row) * 32 + Col) * 2 
+.endrep
+.endrep
+
         ; Clear previously active tile.
         lda ActiveOffset
         asl ; Multiply offset by 2
