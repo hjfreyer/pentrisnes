@@ -19,9 +19,11 @@ ColorData_End:
 
 .BSS
 TilemapMirror:
-        .res 2 * 32 * 32
+                .res 2 * 32 * 32
 TilemapMirror_End:
-ActiveOffset: .res 2
+ActiveOffset:   .res 2
+PrevInput:      .res 2 
+
 .segment "CODE"
 ;-------------------------------------------------------------------------------
 ;   This is the entry point of the demo
@@ -145,24 +147,27 @@ TilemapBlank:
         ; read joypad 1
         ; check whether joypad is ready
 WaitForJoypad:
-        lda HVBJOY                          ; get joypad status
-        and #$0001                            ; check whether joypad still reading...
-        bne WaitForJoypad                   ; ...if not, wait a bit more
+        lda HVBJOY                      ; get joypad status
+        and #$0001                      ; check whether joypad still reading...
+        bne WaitForJoypad               ; ...if not, wait a bit more
 
-        lda JOY1L
-        and #RIGHT_BUTTON
+        lda JOY1L                       ; Read controller status
+        pha                             ; ... and push it onto the stack.
+
+        lda PrevInput                   ; Load last frame's status.
+        eor #$ffff
+        and $01, S                      ; A = current status - last frame's status (i.e., new buttons)
+
+        bit #RIGHT_BUTTON               ; If right is pressed, move right, etc.
         bne MoveRight
 
-        lda JOY1L
-        and #LEFT_BUTTON
+        bit #LEFT_BUTTON
         bne MoveLeft
 
-        lda JOY1L
-        and #DOWN_BUTTON
+        bit #DOWN_BUTTON
         bne MoveDown
 
-        lda JOY1L
-        and #UP_BUTTON
+        bit #UP_BUTTON
         bne MoveUp
 
         jmp MoveEnd
@@ -195,12 +200,15 @@ MoveUp:
 
 MoveEnd:
         lda ActiveOffset
-        asl ; Multiply offset by 2
+        asl                             ; Multiply offset by 2
         tax 
         lda #$0002
-        sta TilemapMirror, X
+        sta TilemapMirror, X            ; Set the active tile to be filled in.
 
-        A8              ; Back to 8 bit
+        pla                             ; Pop controller input
+        sta PrevInput                   ; Store it in PrevInput
+
+        A8                              ; Back to 8 bit
         jmp GameLoop
 .endproc
 ;-------------------------------------------------------------------------------
