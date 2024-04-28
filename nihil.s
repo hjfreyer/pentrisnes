@@ -45,7 +45,7 @@ PrevInput:      .res 2
         jsr DMA_Tiles
         jsr DMA_Palette
 
-        lda #12
+        lda #6
         sta ActiveOffset
 
         ldx #$00
@@ -188,29 +188,27 @@ WaitForJoypad:
         jmp MoveEnd
 
 MoveLeft:
-        lda ActiveOffset
-        dec
-        sta ActiveOffset
+        pea -1
+        jsr TryMove
+        pla
         jmp MoveEnd
 
 MoveRight:
-        lda ActiveOffset
-        inc
-        sta ActiveOffset
+        pea $0001
+        jsr TryMove
+        pla
         jmp MoveEnd
 
 MoveDown:
-        lda ActiveOffset
-        clc
-        adc #$20
-        sta ActiveOffset
+        pea $20
+        jsr TryMove
+        pla
         jmp MoveEnd
 
 MoveUp:
-        lda ActiveOffset
-        sec
-        sbc #$20
-        sta ActiveOffset
+        pea -$20
+        jsr TryMove
+        pla
         jmp MoveEnd
 
 MoveEnd:
@@ -227,6 +225,41 @@ MoveEnd:
         jmp GameLoop
 .endproc
 ;-------------------------------------------------------------------------------
+
+; A = 16
+;
+; Parameters:
+; - Delta (word)
+;
+; Trashes registers: A, X
+.proc TryMove
+        phd                             ; push Direct Register to stack
+        tsc                             ; transfer Stack to... (via Accumulator)
+        tcd                             ; ...Direct Register.
+
+        Delta = $05
+
+        lda ActiveOffset                ; Compute the effective new offset
+        clc
+        adc Delta
+        sta ActiveOffset                ; Update the offset (for now).
+        asl                             ; Double it to get a memory offset.
+        tax                             ; Move it into x.
+
+        lda TilemapMirror, X            ; Get the tile where we're trying to go.
+        beq SkipReset                   ; If it's free, skip over the "reset" code.
+
+        lda ActiveOffset
+        sec
+        sbc Delta
+        sta ActiveOffset
+
+SkipReset:
+        pld                     ; restore caller's frame pointer
+        rts                     ; return to caller
+
+.endproc
+
 
 ;-------------------------------------------------------------------------------
 ;   Will be called during V-Blank
