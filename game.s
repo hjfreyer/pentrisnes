@@ -94,9 +94,7 @@ MoveDown:
         jmp MoveEnd
 
 MoveUp:
-        pea -$20
-        jsr TryMove
-        pla
+        jsr TryRotate
         jmp MoveEnd
 
 MoveEnd:
@@ -179,6 +177,31 @@ BlockLoop:
 
 SkipReset:
         pld                     ; restore caller's frame pointer
+        rts                     ; return to caller
+
+.endproc
+
+.proc TryRotate
+        .a16
+
+        lda ActiveShape         ; Get active shape
+        inc                     ; Add two
+        inc
+        inc
+        inc
+        and #$F               ; Mask off all but the last ??? bits.
+        pha                     ; Push the new rotation selector onto the stack.
+
+        lda ActiveShape         ; Reload active shape.
+        and #$FFF0              ; Mask off last three bits.
+        ora $01, S              ; Or with the new rotation value.
+
+        sta ActiveShape         ; Update the active shape.
+
+        ; TODO: check for collision.
+
+        pla                     ; Clean up stack
+
         rts                     ; return to caller
 
 .endproc
