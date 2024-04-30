@@ -108,6 +108,26 @@ class Sprites:
         return b"".join(c.encode() for c in self.sprites)
 
 
+
+@dataclasses.dataclass
+class Shape:
+    offsets: list[tuple[int, int]]
+
+    def encode(self) -> bytes:
+        ints = [dy * 32 + dx for dx, dy in self.offsets]
+        ints += [0] * (8 - len(ints))
+        return b"".join(o.to_bytes(2, 'little', signed=True) for o in ints)
+
+
+
+@dataclasses.dataclass
+class Shapes:
+    shapes: list[Shape]
+
+    def encode(self) -> bytes:
+        return b"".join(c.encode() for c in self.shapes)
+
+
 def main():
     consts = {}
 
@@ -170,6 +190,15 @@ def main():
         consts["SPRITES_SIZE"] = len(sprites)
 
         f.write(sprites)
+
+    with (out_dir / "shapes.bin").open("wb") as f:
+        sp = [
+            Shape([(0, 0), (1, 0)]),
+            Shape([(0, 0), (0,1)]),
+            Shape([(0, 0), (-1, 0)]),
+            Shape([(0, 0), (0,-1)]),
+        ]
+        f.write(Shapes(sp).encode())
 
     with (out_dir / "consts.s").open("w") as f:
         for k, v in consts.items():

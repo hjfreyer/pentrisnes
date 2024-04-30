@@ -117,31 +117,25 @@ MoveEnd:
 ; - fill (word): The tile to set all the active blocks to.
 .proc DrawActive
         .a16
-        ldx ActiveShape         ; Load offset into ShapeMap
+        lda ActiveShape         ; Load offset into ShapeData
+        and #$00FF
+        asl                     ; Shift left 4 - 16 bytes per shape.
+        asl
+        asl
+        asl
+        tax
 
-        ldy ShapeMap + 2, X
-        phy                     ; End of shape offsets
 
-        ldy ShapeMap, X         ; Iterator over shape data
-
-BlockLoop:
-        lda ShapeData, Y        ; Load the shape-relative offset for this block
+.repeat 8, Block                ; For each of 8 blocks...
+        lda ShapeData + 2 * Block, X    ; Get the offset for that block.
         clc
         adc ActiveOffset        ; Add the center of the shape
         asl                     ; Multiply by 2 to get memory offset
-        tax                     ; X = block location
+        tay                     ; Y = block location
 
-        lda $05, S              ; Set block to the "fill" parameter.
-        sta TilemapMirror, X
-
-        iny
-        iny
-
-        tya                     ; Copy y to a to check loop termination.
-        cmp $01, S              ; Check if at end
-        bne BlockLoop
-        
-        pla                     ; Reset the stack
+        lda $03, S              ; Set block to the "fill" parameter.
+        sta TilemapMirror, Y
+.endrep
 
         rts
 .endproc
@@ -185,15 +179,12 @@ SkipReset:
         .a16
 
         lda ActiveShape         ; Get active shape
-        inc                     ; Add two
         inc
-        inc
-        inc
-        and #$F               ; Mask off all but the last ??? bits.
+        and #$3                 ; Mask off all but the last 2 bits.
         pha                     ; Push the new rotation selector onto the stack.
 
         lda ActiveShape         ; Reload active shape.
-        and #$FFF0              ; Mask off last three bits.
+        and #$FFFC              ; Mask off last three bits.
         ora $01, S              ; Or with the new rotation value.
 
         sta ActiveShape         ; Update the active shape.
