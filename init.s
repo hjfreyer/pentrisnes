@@ -21,6 +21,8 @@
         jsr DMA_Tiles
         jsr DMA_Palette
 
+        stz ActiveShape
+
         lda #6
         sta ActiveOffset
 

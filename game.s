@@ -42,10 +42,10 @@
 .endrep
 
         ; Clear previously active tile.
-        lda ActiveOffset
-        asl ; Multiply offset by 2
-        tax 
-        stz TilemapMirror, X
+        lda #$0000
+        pha
+        jsr DrawActive
+        pla
 
         ; read joypad 1
         ; check whether joypad is ready
@@ -100,11 +100,10 @@ MoveUp:
         jmp MoveEnd
 
 MoveEnd:
-        lda ActiveOffset
-        asl                             ; Multiply offset by 2
-        tax 
-        lda #$0002
-        sta TilemapMirror, X            ; Set the active tile to be filled in.
+        lda #$0001                      ; Draw the active tile in red.
+        pha
+        jsr DrawActive
+        pla
 
         pla                             ; Pop controller input
         sta PrevInput                   ; Store it in PrevInput
@@ -116,11 +115,47 @@ MoveEnd:
 
 ; A = 16
 ;
+; Parameters
+; - fill (word): The tile to set all the active blocks to.
+.proc DrawActive
+        .a16
+        ldx ActiveShape         ; Load offset into ShapeMap
+
+        ldy ShapeMap + 2, X
+        phy                     ; End of shape offsets
+
+        ldy ShapeMap, X         ; Iterator over shape data
+
+BlockLoop:
+        lda ShapeData, Y        ; Load the shape-relative offset for this block
+        clc
+        adc ActiveOffset        ; Add the center of the shape
+        asl                     ; Multiply by 2 to get memory offset
+        tax                     ; X = block location
+
+        lda $05, S              ; Set block to the "fill" parameter.
+        sta TilemapMirror, X
+
+        iny
+        iny
+
+        tya                     ; Copy y to a to check loop termination.
+        cmp $01, S              ; Check if at end
+        bne BlockLoop
+        
+        pla                     ; Reset the stack
+
+        rts
+.endproc
+
+; A = 16
+;
 ; Parameters:
 ; - Delta (word)
 ;
 ; Trashes registers: A, X
 .proc TryMove
+        .a16
         phd                             ; push Direct Register to stack
         tsc                             ; transfer Stack to... (via Accumulator)
         tcd                             ; ...Direct Register.
@@ -153,6 +188,7 @@ SkipReset:
 ;   Will be called during V-Blank
 ;-------------------------------------------------------------------------------
 .proc   NMIHandler
+        .a8
         lda RDNMI               ; read NMI status, acknowledge NMI
 
         ; Update tilemap based on mirror
