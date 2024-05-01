@@ -21,31 +21,56 @@
 ;   After the ResetHandler will jump to here
 ;-------------------------------------------------------------------------------
 .proc   GameLoop
+        .a16
         wai                     ; wait for NMI / V-Blank
         ; .byte $42, $00          ; debugger breakpoint
 
-        A16
-
-        ; Reset the board enclosure.
-        lda #$0001
-.repeat 20, Row
-.repeat (32-12), Col
-
-        sta TilemapMirror + (Row * 32 + Col + 12) * 2 
-.endrep
-.endrep
-
-.repeat (32-20), Row
-.repeat 32, Col
-        sta TilemapMirror + ((20+Row) * 32 + Col) * 2 
-.endrep
-.endrep
+        jsr ResetEnclosure
 
         ; Clear previously active tile.
         lda #$0000
         pha
         jsr DrawActive
         pla
+
+        jsr DoGravity
+        jsr DoInput
+
+        lda #$0001                      ; Draw the active tile in red.
+        pha
+        jsr DrawActive
+        pla
+
+        jmp GameLoop
+.endproc
+;-------------------------------------------------------------------------------
+
+; Decrease gravity counter. If zero, reset and move block down.
+.proc DoGravity
+        .a16
+
+        lda GravityCounter
+        dec                     ; Decrement and update GravityCounter
+        sta GravityCounter
+        
+        bne SkipGravity         ; If it's nonzero, skip to the end.
+   
+        lda #60
+        sta GravityCounter
+
+        pea $20                 ; Move down
+        jsr TryMove
+        pla
+
+        ; TODO: lock down.
+
+SkipGravity:
+        rts
+
+.endproc
+
+.proc DoInput
+        .a16
 
         ; read joypad 1
         ; check whether joypad is ready
@@ -98,18 +123,30 @@ MoveUp:
         jmp MoveEnd
 
 MoveEnd:
-        lda #$0001                      ; Draw the active tile in red.
-        pha
-        jsr DrawActive
-        pla
-
         pla                             ; Pop controller input
         sta PrevInput                   ; Store it in PrevInput
+        rts
 
-        A8                              ; Back to 8 bit
-        jmp GameLoop
 .endproc
-;-------------------------------------------------------------------------------
+
+.proc ResetEnclosure
+        .a16
+        ; Reset the board enclosure.
+        lda #$0001
+        .repeat 20, Row
+        .repeat (32-12), Col
+                sta TilemapMirror + (Row * 32 + Col + 12) * 2 
+        .endrep
+        .endrep
+
+        .repeat (32-20), Row
+        .repeat 32, Col
+                sta TilemapMirror + ((20+Row) * 32 + Col) * 2 
+        .endrep
+        .endrep
+
+        rts
+.endproc
 
 ; A = 16
 ;
@@ -118,7 +155,6 @@ MoveEnd:
 .proc DrawActive
         .a16
         lda ActiveShape         ; Load offset into ShapeData
-        and #$00FF
         asl                     ; Shift left 4 - 16 bytes per shape.
         asl
         asl
@@ -146,7 +182,6 @@ MoveEnd:
 .proc CheckCollision
         .a16
         lda ActiveShape         ; Load offset into ShapeData
-        and #$00FF
         asl                     ; Shift left 4 - 16 bytes per shape.
         asl
         asl
@@ -238,8 +273,8 @@ SkipReset:
 ;   Will be called during V-Blank
 ;-------------------------------------------------------------------------------
 .proc   NMIHandler
-        .a8
         lda RDNMI               ; read NMI status, acknowledge NMI
+        A8
 
         ; Update tilemap based on mirror
 
@@ -263,5 +298,6 @@ SkipReset:
 	lda #1
 	sta MDMAEN ; $420b start dma, channel 0
 
+        A16
         rti
 .endproc

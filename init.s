@@ -22,9 +22,11 @@
         jsr DMA_Palette
 
         stz ActiveShape
+        ldx #60
+        stx GravityCounter
 
-        lda #6
-        sta ActiveOffset
+        ldx #6
+        stx ActiveOffset
 
         ldx #$00
 TilemapBlank:
@@ -64,10 +66,12 @@ TilemapBlank:
         lda #$81
         sta NMITIMEN
 
+        A16
         jmp GameLoop            ; all initialization is done
 .endproc
 
 .proc DMA_Tiles
+        .a8
         ldx #VRAM_TILES
         stx VMADDL              ; set the VRAM address to VRAM_TILES
 
