@@ -142,6 +142,35 @@ MoveEnd:
 
 ; A = 16
 ;
+; Zero flag indicates that there's no collision.
+.proc CheckCollision
+        .a16
+        lda ActiveShape         ; Load offset into ShapeData
+        and #$00FF
+        asl                     ; Shift left 4 - 16 bytes per shape.
+        asl
+        asl
+        asl
+        tax
+
+.repeat 8, Block                ; For each of 8 blocks...
+        lda ShapeData + 2 * Block, X    ; Get the offset for that block.
+        clc
+        adc ActiveOffset        ; Add the center of the shape
+        asl                     ; Multiply by 2 to get memory offset
+        tay                     ; Y = block location
+
+        lda TilemapMirror, Y
+        bne Conflict
+.endrep
+
+
+Conflict:
+        rts
+.endproc
+
+; A = 16
+;
 ; Parameters:
 ; - Delta (word)
 ;
@@ -161,8 +190,8 @@ MoveEnd:
         asl                             ; Double it to get a memory offset.
         tax                             ; Move it into x.
 
-        lda TilemapMirror, X            ; Get the tile where we're trying to go.
-        beq SkipReset                   ; If it's free, skip over the "reset" code.
+        jsr CheckCollision              ; Check for collisions.
+        beq SkipReset                   ; If none, skip over the "reset" code.
 
         lda ActiveOffset
         sec
@@ -179,6 +208,7 @@ SkipReset:
         .a16
 
         lda ActiveShape         ; Get active shape
+        pha                     ; Save in case we revert.
         inc
         and #$3                 ; Mask off all but the last 2 bits.
         pha                     ; Push the new rotation selector onto the stack.
@@ -188,9 +218,15 @@ SkipReset:
         ora $01, S              ; Or with the new rotation value.
 
         sta ActiveShape         ; Update the active shape.
+        pla
 
-        ; TODO: check for collision.
+        jsr CheckCollision      ; Check for collisions.
+        beq SkipReset           ; If none, skip over the "reset" code.
 
+        lda $01, s              ; Grab the old active shape
+        sta ActiveShape         ; Restore it.
+
+SkipReset:
         pla                     ; Clean up stack
 
         rts                     ; return to caller
