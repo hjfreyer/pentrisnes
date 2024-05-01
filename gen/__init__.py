@@ -8,6 +8,7 @@ import dataclasses
 import shutil
 import colorsys
 
+from shapedata import Shape, Shapes
 
 def shapecolors_hls():
     for idx in range(30):
@@ -108,24 +109,6 @@ class Sprites:
         return b"".join(c.encode() for c in self.sprites)
 
 
-
-@dataclasses.dataclass
-class Shape:
-    offsets: list[tuple[int, int]]
-
-    def encode(self) -> bytes:
-        ints = [dy * 32 + dx for dx, dy in self.offsets]
-        ints += [0] * (8 - len(ints))
-        return b"".join(o.to_bytes(2, 'little', signed=True) for o in ints)
-
-
-
-@dataclasses.dataclass
-class Shapes:
-    shapes: list[Shape]
-
-    def encode(self) -> bytes:
-        return b"".join(c.encode() for c in self.shapes)
 
 
 def main():
