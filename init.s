@@ -21,7 +21,8 @@
         jsr DMA_Tiles
         jsr DMA_Palette
 
-        stz ActiveShape
+        lda #60
+        sta ActiveShape
         ldx #60
         stx GravityCounter
 
@@ -35,14 +36,6 @@ TilemapBlank:
         cpx #(TilemapMirror_End - TilemapMirror)
         bcc TilemapBlank
 
-        ; Set up demo Tilemap
-.repeat 6, PAL
-.repeat 5, SPR
-        ldx #(SPR+1)
-        stx TilemapMirror + 2*((PAL * 33) +SPR)
-.endrep
-.endrep
-      
 	lda #1 ; mode 1, tilesize 8x8 all
 	sta BGMODE ; $2105
 	

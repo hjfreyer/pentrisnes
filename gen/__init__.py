@@ -8,7 +8,7 @@ import dataclasses
 import shutil
 import colorsys
 
-from shapedata import Shape, Shapes
+import shapedata
 
 def shapecolors_hls():
     for idx in range(30):
@@ -175,13 +175,7 @@ def main():
         f.write(sprites)
 
     with (out_dir / "shapes.bin").open("wb") as f:
-        sp = [
-            Shape([(0, 0), (1, 0)]),
-            Shape([(0, 0), (0,1)]),
-            Shape([(0, 0), (-1, 0)]),
-            Shape([(0, 0), (0,-1)]),
-        ]
-        f.write(Shapes(sp).encode())
+        f.write(shapedata.ALL_ROTATIONS.encode())
 
     with (out_dir / "consts.s").open("w") as f:
         for k, v in consts.items():

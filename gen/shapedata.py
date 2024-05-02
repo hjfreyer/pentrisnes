@@ -1,4 +1,6 @@
 import dataclasses
+import math
+
 
 @dataclasses.dataclass
 class Shape:
@@ -6,9 +8,43 @@ class Shape:
 
     def encode(self) -> bytes:
         ints = [dy * 32 + dx for dx, dy in self.offsets]
-        ints += [0] * (8 - len(ints))
-        return b"".join(o.to_bytes(2, 'little', signed=True) for o in ints)
+        ints += [ints[0]] * (8 - len(ints))
+        return b"".join(o.to_bytes(2, "little", signed=True) for o in ints)
 
+    def mirrorY(self) -> "Shape":
+        return Shape(offsets=[(row, -col) for row, col in self.offsets])
+
+    def _boundingbox(self) -> tuple[int, int, int, int]:
+        rows = [row for row, col in self.offsets]
+        cols = [col for row, col in self.offsets]
+        return (
+            min(rows),
+            min(cols),
+            max(rows),
+            max(cols),
+        )
+
+    def _center(self) -> tuple[float, float]:
+        minRow, minCol, maxRow, maxCol = self._boundingbox()
+
+        # The side length of a square surrounding the shape. Assumes shapes are
+        # always oriented horizontally.
+        squareSide = maxCol - minCol
+        rowOffsetIntoSquare = math.ceil((squareSide - (maxRow - minRow)) / 2)
+        squareMinRow = minRow - rowOffsetIntoSquare
+        centerRow = squareMinRow + squareSide / 2
+        centerCol = minCol + squareSide / 2
+
+        return (centerRow, centerCol)
+
+    def rotate(self) -> "Shape":
+        centerRow, centerCol = self._center()
+
+        centered = [(row - centerRow, col - centerCol) for row, col in self.offsets]
+        rotated = [(col, -row) for row, col in centered]
+        return Shape(
+            [(int(row + centerRow), int(col + centerCol)) for row, col in rotated]
+        )
 
 
 @dataclasses.dataclass
@@ -19,223 +55,260 @@ class Shapes:
         return b"".join(c.encode() for c in self.shapes)
 
 
-# type Tiles = Array<[number, number]>;
+# Pentominos.
 
-# export function mirrorY(t: Tiles): Tiles {
-#   return t.map(([row, col]) => [row, -col]);
-# }
+pentominoF = Shape(
+    [
+        (0, 0),
+        (1, 0),
+        (0, 1),
+        (0, 2),
+        (-1, 1),
+    ]
+)
 
-# // Pentominos.
+pentominoI = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (0, 4),
+    ]
+)
 
-# const pentominoF: Tiles = [
-#   [0, 0],
-#   [1, 0],
-#   [0, 1],
-#   [0, 2],
-#   [-1, 1],
-# ];
+pentominoL = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (1, 3),
+    ]
+)
 
-# const pentominoI: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-#   [0, 3],
-#   [0, 4],
-# ];
+pentominoN = Shape(
+    [
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+    ]
+)
 
-# const pentominoL: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-#   [0, 3],
-#   [1, 3],
-# ];
+pentominoP = Shape(
+    [
+        (0, 0),
+        (1, 0),
+        (0, 1),
+        (1, 1),
+        (1, -1),
+    ]
+)
 
-# const pentominoN: Tiles = [
-#   [1, 0],
-#   [1, 1],
-#   [0, 1],
-#   [0, 2],
-#   [0, 3],
-# ];
+pentominoT = Shape(
+    [
+        (0, -1),
+        (0, 1),
+        (0, 0),
+        (1, 0),
+        (2, 0),
+    ]
+)
 
-# const pentominoP: Tiles = [
-#   [0, 0],
-#   [1, 0],
-#   [0, 1],
-#   [1, 1],
-#   [1, -1],
-# ];
+pentominoU = Shape(
+    [
+        (0, 0),
+        (0, -1),
+        (0, 1),
+        (-1, 1),
+        (-1, -1),
+    ]
+)
 
-# const pentominoT: Tiles = [
-#   [0, -1],
-#   [0, 1],
-#   [0, 0],
-#   [1, 0],
-#   [2, 0],
-# ];
+pentominoV = Shape(
+    [
+        (0, -2),
+        (0, -1),
+        (0, 0),
+        (1, 0),
+        (2, 0),
+    ]
+)
 
-# const pentominoU: Tiles = [
-#   [0, 0],
-#   [0, -1],
-#   [0, 1],
-#   [-1, 1],
-#   [-1, -1],
-# ];
+pentominoW = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (1, 1),
+        (1, 2),
+        (2, 2),
+    ]
+)
 
-# const pentominoV: Tiles = [
-#   [0, -2],
-#   [0, -1],
-#   [0, 0],
-#   [1, 0],
-#   [2, 0],
-# ];
+pentominoX = Shape(
+    [
+        (0, 0),
+        (-1, 0),
+        (1, 0),
+        (0, -1),
+        (0, 1),
+    ]
+)
 
-# const pentominoW: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [1, 1],
-#   [1, 2],
-#   [2, 2],
-# ];
+pentominoY = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (-1, 1),
+    ]
+)
 
-# const pentominoX: Tiles = [
-#   [0, 0],
-#   [-1, 0],
-#   [1, 0],
-#   [0, -1],
-#   [0, 1],
-# ];
+pentominoZ = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (-1, 0),
+        (1, 2),
+    ]
+)
 
-# const pentominoY: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-#   [0, 3],
-#   [-1, 1],
-# ];
+pentominoF2: Shape = pentominoF.mirrorY()
+pentominoJ: Shape = pentominoL.mirrorY()
+pentominoN2: Shape = pentominoN.mirrorY()
+pentominoQ: Shape = pentominoP.mirrorY()
+pentominoY2: Shape = pentominoY.mirrorY()
+pentominoS: Shape = pentominoZ.mirrorY()
 
-# const pentominoZ: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-#   [-1, 0],
-#   [1, 2],
-# ];
+PENTOMINOES: list[Shape] = [
+    pentominoF,
+    pentominoF2,
+    pentominoL,
+    pentominoJ,
+    pentominoN,
+    pentominoN2,
+    pentominoP,
+    pentominoQ,
+    pentominoY,
+    pentominoY2,
+    pentominoZ,
+    pentominoS,
+    pentominoT,
+    pentominoU,
+    pentominoV,
+    pentominoW,
+    pentominoX,
+    pentominoI,
+]
 
-# const pentominoF2: Tiles = mirrorY(pentominoF);
+# Tetrominos
 
-# const pentominoJ: Tiles = mirrorY(pentominoL);
+tetrominoI = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+    ]
+)
 
-# const pentominoN2: Tiles = mirrorY(pentominoN);
+tetrominoJ = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (1, 2),
+    ]
+)
 
-# const pentominoQ: Tiles = mirrorY(pentominoP);
+tetrominoL = tetrominoJ.mirrorY()
 
-# const pentominoY2: Tiles = mirrorY(pentominoY);
+tetrominoO = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (1, 0),
+        (1, 1),
+    ]
+)
 
-# const pentominoS: Tiles = mirrorY(pentominoZ);
+tetrominoS = Shape(
+    [
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (0, 2),
+    ]
+)
 
-# const PENTOMINOES: Tiles[] = [
-#   pentominoF,
-#   pentominoF2,
-#   pentominoL,
-#   pentominoJ,
-#   pentominoN,
-#   pentominoN2,
-#   pentominoP,
-#   pentominoQ,
-#   pentominoY,
-#   pentominoY2,
-#   pentominoZ,
-#   pentominoS,
-#   pentominoT,
-#   pentominoU,
-#   pentominoV,
-#   pentominoW,
-#   pentominoX,
-#   pentominoI,
-# ];
+tetrominoZ = tetrominoS.mirrorY()
 
-# // Tetrominos
+tetrominoT = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (1, 1),
+    ]
+)
 
-# const tetrominoI: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-#   [0, 3],
-# ];
+TETROMINOES = [
+    tetrominoI,
+    tetrominoJ,
+    tetrominoL,
+    tetrominoO,
+    tetrominoS,
+    tetrominoZ,
+    tetrominoT,
+]
 
-# const tetrominoJ: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-#   [1, 2],
-# ];
+# Trominoes
 
-# const tetrominoL: Tiles = mirrorY(tetrominoJ);
+trominoI = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+    ]
+)
 
-# const tetrominoO: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [1, 0],
-#   [1, 1],
-# ];
+trominoL = Shape(
+    [
+        (0, 0),
+        (0, 1),
+        (1, 1),
+    ]
+)
 
-# const tetrominoS: Tiles = [
-#   [1, 0],
-#   [1, 1],
-#   [0, 1],
-#   [0, 2],
-# ];
+TROMINOES = [trominoI, trominoL]
 
-# const tetrominoZ: Tiles = mirrorY(tetrominoS);
+domino = Shape(
+    [
+        (0, 0),
+        (0, 1),
+    ]
+)
 
-# const tetrominoT: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-#   [1, 1],
-# ];
+monomino = Shape([(0, 0)])
 
-# const TETROMINOES: Tiles[] = [
-#   tetrominoI,
-#   tetrominoJ,
-#   tetrominoL,
-#   tetrominoO,
-#   tetrominoS,
-#   tetrominoZ,
-#   tetrominoT,
-# ];
+ALL_SHAPES = [
+    monomino,
+    domino,
+    *TROMINOES,
+    *TETROMINOES,
+    *PENTOMINOES,
+]
 
-# // Trominoes
-
-# const trominoI: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [0, 2],
-# ];
-
-# const trominoL: Tiles = [
-#   [0, 0],
-#   [0, 1],
-#   [1, 1],
-# ];
-
-# const TROMINOES: Tiles[] = [trominoI, trominoL];
-
-# const domino: Tiles = [
-#   [0, 0],
-#   [0, 1],
-# ];
-
-# const monomino: Tiles = [[0, 0]];
-
-# const shapes: Tiles[] = [
-#   monomino,
-#   domino,
-#   ...TROMINOES,
-#   ...TETROMINOES,
-#   ...PENTOMINOES,
-# ];
-
-# export default shapes;
+ALL_ROTATIONS = Shapes(
+    sum(
+        [
+            [s, s.rotate(), s.rotate().rotate(), s.rotate().rotate().rotate()]
+            for s in ALL_SHAPES
+        ],
+        [],
+    )
+)
