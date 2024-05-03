@@ -36,7 +36,7 @@
         jsr DoGravity
         jsr DoInput
 
-        lda #$0001                      ; Draw the active tile in red.
+        lda #$0002                      ; Draw the active tile in red.
         pha
         jsr DrawActive
         pla
