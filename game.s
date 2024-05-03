@@ -55,15 +55,32 @@
         
         bne SkipGravity         ; If it's nonzero, skip to the end.
    
-        lda #60
+        lda #60                 ; Reset the gravity counter
         sta GravityCounter
 
-        pea $20                 ; Move down
-        jsr TryMove
+        lda ActiveOffset                ; Move the active shape down a row.
+        clc
+        adc #$20
+        sta ActiveOffset                ; Update the offset (for now).
+     
+        jsr CheckCollision              ; Check for collisions.
+        beq SkipLockdown                ; If none, skip over the "lock down" code.
+
+        lda ActiveOffset                ; If there was a collision, back out of the drop.
+        sec
+        sbc #$20                     
+        sta ActiveOffset
+
+        pea $0002                       ; Add the active shape to the background.
+        jsr DrawActive
         pla
 
-        ; TODO: lock down.
+        lda #$0003                      ; Select a new active shape.
+        sta ActiveShape
+        lda #SPAWN_OFFSET               ; And reset the offset.
+        sta ActiveOffset
 
+SkipLockdown:
 SkipGravity:
         rts
 
@@ -222,9 +239,7 @@ Conflict:
         clc
         adc Delta
         sta ActiveOffset                ; Update the offset (for now).
-        asl                             ; Double it to get a memory offset.
-        tax                             ; Move it into x.
-
+   
         jsr CheckCollision              ; Check for collisions.
         beq SkipReset                   ; If none, skip over the "reset" code.
 

@@ -26,7 +26,7 @@
         ldx #60
         stx GravityCounter
 
-        ldx #6
+        ldx #SPAWN_OFFSET
         stx ActiveOffset
 
         ldx #$00
