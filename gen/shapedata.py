@@ -7,7 +7,7 @@ class Shape:
     offsets: list[tuple[int, int]]
 
     def encode(self) -> bytes:
-        ints = [dy * 32 + dx for dx, dy in self.offsets]
+        ints = [row * 32 + col for row, col in self.offsets]
         ints += [ints[0]] * (8 - len(ints))
         return b"".join(o.to_bytes(2, "little", signed=True) for o in ints)
 
@@ -37,11 +37,13 @@ class Shape:
 
         return (centerRow, centerCol)
 
-    def rotate(self) -> "Shape":
+    def rotate(self, count) -> "Shape":
         centerRow, centerCol = self._center()
 
         centered = [(row - centerRow, col - centerCol) for row, col in self.offsets]
-        rotated = [(col, -row) for row, col in centered]
+        rotated = centered
+        for _ in range(count):
+            rotated = [(col, -row) for row, col in rotated]
         return Shape(
             [(int(row + centerRow), int(col + centerCol)) for row, col in rotated]
         )
@@ -303,12 +305,4 @@ ALL_SHAPES = [
     *PENTOMINOES,
 ]
 
-ALL_ROTATIONS = Shapes(
-    sum(
-        [
-            [s, s.rotate(), s.rotate().rotate(), s.rotate().rotate().rotate()]
-            for s in ALL_SHAPES
-        ],
-        [],
-    )
-)
+ALL_ROTATIONS = Shapes([s.rotate(i) for s in ALL_SHAPES for i in range(4)])
