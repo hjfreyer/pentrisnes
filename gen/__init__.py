@@ -175,6 +175,7 @@ def main():
         f.write(sprites)
 
     with (out_dir / "shapes.bin").open("wb") as f:
+        consts["SHAPE_COUNT"] = len(shapedata.ALL_ROTATIONS.shapes) // 4
         f.write(shapedata.ALL_ROTATIONS.encode())
 
     with (out_dir / "consts.s").open("w") as f:

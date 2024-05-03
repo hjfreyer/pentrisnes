@@ -5,6 +5,7 @@
 
 .include "mmap.s"
 .include "macros.s"
+.include "out/consts.s"
 
 ;----- Assembler Directives ----------------------------------------------------
 .p816                           ; tell the assembler this is 65816 code
@@ -75,8 +76,7 @@
         jsr DrawActive
         pla
 
-        lda #$0003                      ; Select a new active shape.
-        sta ActiveShape
+        jsr RandomizeActive
         lda #SPAWN_OFFSET               ; And reset the offset.
         sta ActiveOffset
 
@@ -283,6 +283,52 @@ SkipReset:
 
 .endproc
 
+; Ported from https://www.nesdev.org/wiki/Random_number_generator
+;
+; Returns a random 8-bit number in A (0-255), clobbers Y (0).
+;
+; Requires a 2-byte value on the zero page called "seed".
+; Initialize seed to any value except 0 before the first call to prng.
+; (A seed value of 0 will cause prng to always return 0.)
+;
+; This is a 16-bit Galois linear feedback shift register with polynomial $0039.
+; The sequence of numbers it generates will repeat after 65535 calls.
+;
+; Execution time is an average of 125 cycles (excluding jsr and rts)
+.proc GetRandom
+        A8
+	ldy #8                  ; iteration count (generates 8 bits)
+	lda RandomSeed + 0
+NextBit:
+	asl                     ; shift the register
+	rol RandomSeed + 1
+	bcc SkipXor
+	eor #$39   ; apply XOR feedback whenever a 1 bit is shifted out
+SkipXor:
+	dey
+	bne NextBit
+	sta RandomSeed + 0
+	cmp #0     ; reload flags
+        A16
+        and #$00FF
+	rts
+.endproc
+
+.proc RandomizeActive 
+        .a16
+
+Reroll:
+        jsr GetRandom
+        and #$001F              ; Assumes SHAPE_COUNT < 32
+        cmp #SHAPE_COUNT
+        bpl Reroll              ; If random index is >= shape count, get another.
+
+        asl
+        asl
+        sta ActiveShape
+
+        rts
+.endproc
 
 ;-------------------------------------------------------------------------------
 ;   Will be called during V-Blank

@@ -21,8 +21,13 @@
         jsr DMA_Tiles
         jsr DMA_Palette
 
-        lda #60
-        sta ActiveShape
+        ldx #$4243              ; Random seed
+        stx RandomSeed
+
+        A16
+        jsr RandomizeActive
+        A8
+
         ldx #60
         stx GravityCounter
 
