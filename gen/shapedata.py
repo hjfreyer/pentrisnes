@@ -3,13 +3,23 @@ import math
 
 
 @dataclasses.dataclass
-class Shape:
-    offsets: list[tuple[int, int]]
+class ColoredShape:
+    shape: "Shape"
+    color: int
 
     def encode(self) -> bytes:
-        ints = [row * 32 + col for row, col in self.offsets]
-        ints += [ints[0]] * (8 - len(ints))
+        ints = [self.color]
+        ints += [row * 32 + col for row, col in self.shape.offsets]
+        ints += [ints[1]] * (8 - len(ints))
         return b"".join(o.to_bytes(2, "little", signed=True) for o in ints)
+
+    def rotate(self, count) -> "ColoredShape":
+        return ColoredShape(color=self.color, shape=self.shape.rotate(count))
+
+
+@dataclasses.dataclass
+class Shape:
+    offsets: list[tuple[int, int]]
 
     def mirrorY(self) -> "Shape":
         return Shape(offsets=[(row, -col) for row, col in self.offsets])
@@ -51,7 +61,7 @@ class Shape:
 
 @dataclasses.dataclass
 class Shapes:
-    shapes: list[Shape]
+    shapes: list[ColoredShape]
 
     def encode(self) -> bytes:
         return b"".join(c.encode() for c in self.shapes)
@@ -305,4 +315,15 @@ ALL_SHAPES = [
     *PENTOMINOES,
 ]
 
-ALL_ROTATIONS = Shapes([s.rotate(i) for s in ALL_SHAPES for i in range(4)])
+
+def allShapes() -> list[ColoredShape]:
+    res = []
+    for i, shape in enumerate(ALL_SHAPES):
+        i %= 30
+        tile = i % 5 + 2
+        palette = i // 5
+        res.append(ColoredShape(color=(palette << 10) | tile, shape=shape))
+    return res
+
+
+ALL_ROTATIONS = Shapes([s.rotate(i) for s in allShapes() for i in range(4)])

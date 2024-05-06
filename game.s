@@ -37,7 +37,7 @@
         jsr DoGravity
         jsr DoInput
 
-        lda #$0002                      ; Draw the active tile in red.
+        lda #$FFFF                      ; Draw the active tile in red.
         pha
         jsr DrawActive
         pla
@@ -72,7 +72,7 @@
         sbc #$20                     
         sta ActiveOffset
 
-        pea $0002                       ; Add the active shape to the background.
+        pea $FFFF                       ; Add the active shape to the background.
         jsr DrawActive
         pla
 
@@ -168,7 +168,7 @@ MoveEnd:
 ; A = 16
 ;
 ; Parameters
-; - fill (word): The tile to set all the active blocks to.
+; - fillMask (word): Mask the shape's tile with this before drawing.
 .proc DrawActive
         .a16
         lda ActiveShape         ; Load offset into ShapeData
@@ -178,18 +178,23 @@ MoveEnd:
         asl
         tax
 
+        lda $03, S              ; Load fillMask.
+        and ShapeData, x        ; And-in the shape's tile.
+        pha                     ; Push it onto the stack.
 
-.repeat 8, Block                ; For each of 8 blocks...
-        lda ShapeData + 2 * Block, X    ; Get the offset for that block.
+
+.repeat 7, Block                ; For each of 7 blocks (after the tile)...
+        lda ShapeData + 2 * Block + 2, X    ; Get the offset for that block.
         clc
         adc ActiveOffset        ; Add the center of the shape
         asl                     ; Multiply by 2 to get memory offset
         tay                     ; Y = block location
 
-        lda $03, S              ; Set block to the "fill" parameter.
+        lda $01, S              ; Set block to the tile on the stack.
         sta TilemapMirror, Y
 .endrep
 
+        pla                     ; Clear stack.
         rts
 .endproc
 
@@ -205,8 +210,8 @@ MoveEnd:
         asl
         tax
 
-.repeat 8, Block                ; For each of 8 blocks...
-        lda ShapeData + 2 * Block, X    ; Get the offset for that block.
+.repeat 7, Block                ; For each of 7 blocks (after the tile)...
+        lda ShapeData + 2 * Block + 2, X    ; Get the offset for that block.
         clc
         adc ActiveOffset        ; Add the center of the shape
         asl                     ; Multiply by 2 to get memory offset
