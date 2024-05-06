@@ -26,8 +26,6 @@
         wai                     ; wait for NMI / V-Blank
         ; .byte $42, $00          ; debugger breakpoint
 
-        jsr ResetEnclosure
-
         ; Clear previously active tile.
         lda #$0000
         pha
@@ -144,25 +142,6 @@ MoveEnd:
         sta PrevInput                   ; Store it in PrevInput
         rts
 
-.endproc
-
-.proc ResetEnclosure
-        .a16
-        ; Reset the board enclosure.
-        lda #$0001
-        .repeat 20, Row
-        .repeat (32-12), Col
-                sta TilemapMirror + (Row * 32 + Col + 12) * 2 
-        .endrep
-        .endrep
-
-        .repeat (32-20), Row
-        .repeat 32, Col
-                sta TilemapMirror + ((20+Row) * 32 + Col) * 2 
-        .endrep
-        .endrep
-
-        rts
 .endproc
 
 ; A = 16

@@ -20,6 +20,7 @@
 
         jsr DMA_Tiles
         jsr DMA_Palette
+        jsr InitPlayfield
 
         ldx #$4243              ; Random seed
         stx RandomSeed
@@ -35,11 +36,6 @@
         stx ActiveOffset
 
         ldx #$00
-TilemapBlank:
-        stz TilemapMirror, X
-        inx
-        cpx #(TilemapMirror_End - TilemapMirror)
-        bcc TilemapBlank
 
 	lda #1 ; mode 1, tilesize 8x8 all
 	sta BGMODE ; $2105
@@ -109,6 +105,25 @@ TilemapBlank:
         rts
 .endproc
 
+
+.proc InitPlayfield
+        A16
+        lda #$0001
+        .repeat 20, Row
+        .repeat (32-12), Col
+                sta TilemapMirror + (Row * 32 + Col + 12) * 2 
+        .endrep
+        .endrep
+
+        .repeat (32-20), Row
+        .repeat 32, Col
+                sta TilemapMirror + ((20+Row) * 32 + Col) * 2 
+        .endrep
+        .endrep
+
+        A8
+        rts
+.endproc
 
 ;-------------------------------------------------------------------------------
 ;   Is not used in this program
