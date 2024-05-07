@@ -78,6 +78,8 @@
         lda #SPAWN_OFFSET               ; And reset the offset.
         sta ActiveOffset
 
+        jsr DoLineClears
+
 SkipLockdown:
 SkipGravity:
         rts
@@ -142,6 +144,67 @@ MoveEnd:
         sta PrevInput                   ; Store it in PrevInput
         rts
 
+.endproc
+
+.proc DoLineClears
+        .a16
+        ; .byte $42, $00          ; debugger breakpoint
+
+        pea $0000                       ; Push row index onto the stack.
+
+RowLoop:
+        lda $01, S                      ; Get row index
+
+.repeat 6                               ; A will be pointer to the row start in memory
+        asl
+.endrep                                 ; A = row index << 6 (32 tiles per row, 2 bytes per tile)
+        clc             
+        adc #TilemapMirror              ; A += TilemapMirror
+        pha                             ; Push row start pointer
+
+        ldy #$0000                      ; Y = offset into row
+
+TileLoop:
+        lda ($01, S), Y                 ; Load current tile
+        beq TileLoopEnd                 ; If it's zero (empty), skip to next row.
+
+        iny                             ; y += 2
+        iny
+        cpy #$40                        ; if y < 64
+        bcc TileLoop                    ; continue row loop
+
+        ; If it made it here, we got to the end of the row without
+        ; encountering an empty space. Clear the line
+        
+        ldy #$0000                      ; Y = offset into row
+
+LineClearLoop:
+        lda ($01, S), Y                 ; Check if the current tile is indestructible
+        cmp #$0001
+        beq SkipClear                   ; If so, don't clear it.
+
+        lda #$0000                      ; Otherwise, set it to 0.
+        sta ($01, S), Y
+
+SkipClear:
+        iny
+        iny
+        cpy #$40                        ; if y < 64
+        bcc LineClearLoop               ; continue clearing.
+
+TileLoopEnd:
+        pla                             ; Pop row pointer.
+        lda $01, S                      ; Increment row index
+        inc
+        sta $01, S
+
+        cmp #$20                        ; if row < 32
+        bcc RowLoop
+
+        ; End of RowLoop
+
+        pla                             ; Pop row index
+        rts
 .endproc
 
 ; A = 16
