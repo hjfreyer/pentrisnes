@@ -25,6 +25,9 @@
         ldx #$4243              ; Random seed
         stx RandomSeed
 
+        ldx #$0000
+        stx PrevInput
+
         A16
         jsr RandomizeActive
         A8
@@ -107,21 +110,18 @@
 
 
 .proc InitPlayfield
-        A16
-        lda #$0001
-        .repeat 20, Row
-        .repeat (32-12), Col
-                sta TilemapMirror + (Row * 32 + Col + 12) * 2 
-        .endrep
-        .endrep
+        .a8
 
-        .repeat (32-20), Row
-        .repeat 32, Col
-                sta TilemapMirror + ((20+Row) * 32 + Col) * 2 
-        .endrep
-        .endrep
+        ldx #$0000
 
-        A8
+Loop:
+        lda PlayFieldTemplate, X
+        sta TilemapMirror, X
+        inx
+
+        cpx #(PlayFieldTemplate_End - PlayFieldTemplate)
+        bcc Loop
+
         rts
 .endproc
 

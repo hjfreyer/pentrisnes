@@ -6,10 +6,14 @@ ColorData:  .incbin "out/colors.pal"
 ColorData_End:
 ShapeData:
     .incbin "out/shapes.bin"
+PlayFieldTemplate:
+    .incbin "out/playfield.bin"
+PlayFieldTemplate_End:
 
 
 
 .BSS
+.res 32                             ; Make TilemapMirror not be at 0 to catch bugs.
 TilemapMirror:
                 .res 2 * 32 * 32
 TilemapMirror_End:

@@ -145,6 +145,17 @@ def bitplane_to_rows(bp: list[list[int]]) -> list[int]:
     return res
 
 
+def playfield() -> bytes:
+    tiles = []
+    for row in range(32):
+        for col in range(32):
+            if col < 12 and row < 20:
+                tiles.append(0)
+            else:
+                tiles.append(1)
+    return b"".join(struct.pack("<H", t) for t in tiles)
+
+
 def main():
     consts = {}
 
@@ -177,6 +188,9 @@ def main():
     with (out_dir / "shapes.bin").open("wb") as f:
         consts["SHAPE_COUNT"] = len(shapedata.ALL_ROTATIONS.shapes) // 4
         f.write(shapedata.ALL_ROTATIONS.encode())
+
+    with (out_dir / "playfield.bin").open("wb") as f:
+        f.write(playfield())
 
     with (out_dir / "consts.s").open("w") as f:
         for k, v in consts.items():
