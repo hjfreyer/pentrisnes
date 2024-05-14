@@ -149,7 +149,7 @@ def playfield() -> bytes:
     tiles = []
     for row in range(32):
         for col in range(32):
-            if col < 12 and row < 20:
+            if col < 12 and row < 22:
                 tiles.append(0)
             else:
                 tiles.append(1)
