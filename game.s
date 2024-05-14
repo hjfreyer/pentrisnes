@@ -150,60 +150,143 @@ MoveEnd:
         .a16
         ; .byte $42, $00          ; debugger breakpoint
 
-        pea $0000                       ; Push row index onto the stack.
+        pea TilemapMirror               ; Push row pointer onto the stack.
 
 RowLoop:
-        lda $01, S                      ; Get row index
+        pha                             ; Stack space for CheckRow result.
+        jsr CheckRow
+        pla
 
-.repeat 6                               ; A will be pointer to the row start in memory
-        asl
-.endrep                                 ; A = row index << 6 (32 tiles per row, 2 bytes per tile)
-        clc             
-        adc #TilemapMirror              ; A += TilemapMirror
-        pha                             ; Push row start pointer
+        beq NextRow
+
+        ; If it made it here, the line should be cleared.
+        jsr Downshift
+        
+NextRow:
+        lda $01, S                      ; Advance row pointer
+        clc
+        adc #$0040
+        sta $01, S
+
+        cmp #TilemapMirror_End          ; if row < 32
+        bcc RowLoop
+
+        ; End of RowLoop
+
+        pla                             ; Pop row pointer
+        rts
+.endproc
+
+; Stack
+;   $05 - Pointer to start of row.
+;   $03 - (out) 1 if row should be cleared (contains no blanks and at least one destructible).
+;   $01 - RTA.
+.proc CheckRow
+        .a16
+        RowPointer = $05
+        ClearableOut = $03
+
+        lda #$0000                      ; Result = 0
+        sta ClearableOut, S
 
         ldy #$0000                      ; Y = offset into row
-
 TileLoop:
-        lda ($01, S), Y                 ; Load current tile
-        beq TileLoopEnd                 ; If it's zero (empty), skip to next row.
+        lda (RowPointer, S), Y          ; Load current tile
+        beq FoundBlank                  ; If it's zero (empty), end early.
 
+        cmp #$0001                      ; If it's 1 (indestructible) 
+        beq NextTile                    ; Skip to next tile.
+
+        ; If what we found wasn't blank, and it wasn't indestructible,
+        ; then we potentially have a clearable row. Speculatively set
+        ; the output.
+        lda #$0001
+        sta ClearableOut, S
+
+NextTile:
         iny                             ; y += 2
         iny
         cpy #$40                        ; if y < 64
         bcc TileLoop                    ; continue row loop
 
-        ; If it made it here, we got to the end of the row without
-        ; encountering an empty space. Clear the line
-        
-        ldy #$0000                      ; Y = offset into row
+        rts                             ; Return when done.
 
-LineClearLoop:
-        lda ($01, S), Y                 ; Check if the current tile is indestructible
+FoundBlank:
+        ; If we found a blank, it's not clearable no matter what.
+        lda #$0000
+        sta ClearableOut, S
+
+        rts
+.endproc
+
+; Stack
+;   $03 - Pointer to bottom row to shift into.
+.proc Downshift
+        .a16
+        lda $03, S                      ; Copy the dest row into our stack frame.
+        pha
+
+        phd                             ; push Direct Register to stack
+        tsc                             ; transfer Stack to... (via Accumulator)
+        tcd                             ; ...Direct Register.
+
+        DestRow = $03
+RowLoop:
+        lda DestRow                     ; Push DestRow
+        pha 
+        sec
+        sbc #$40
+        pha                             ; Push SrcRow = DestRow - $40
+
+        jsr CopyRow                     ; CopyRow
+        pla                             ; Pop SrcRow
+        sta DestRow                     ; DestRow = SrcRow
+        pla                             ; Pop old DestRow copy
+
+        lda DestRow                     ; If DestRow is after the first row, continue.S
+        cmp #TilemapMirror + $40
+        bcs RowLoop
+
+        pld                             ; Reset direct page.
+        pla                             ; Pop DestRow
+
+        rts                             ; Return
+.endproc
+
+; Stack:
+;   05  Pointer to start of dest row.
+;   03  Pointer to start of src row.
+;   01  RTA
+.proc CopyRow
+        .a16
+
+        Dest = $05
+        Src = $03
+
+        ldy #$0000              ; Tile offset into row
+TileLoop:
+        lda (Dest, S), Y
         cmp #$0001
-        beq SkipClear                   ; If so, don't clear it.
+        beq NextTile            ; If the dest tile is indestructible, skip it.
 
-        lda #$0000                      ; Otherwise, set it to 0.
-        sta ($01, S), Y
+        lda (Src, S), Y         ; If the src tile is indestructible, write a 0 to dest.
+        cmp #$0001
+        beq WriteZero
 
-SkipClear:
+        ; Otherwise, do the copy.
+        sta (Dest, S), Y
+        jmp NextTile
+
+WriteZero:
+        lda #$0000
+        sta (Dest, S), Y
+        
+NextTile:
         iny
         iny
-        cpy #$40                        ; if y < 64
-        bcc LineClearLoop               ; continue clearing.
+        cpy #$0040              ; If we havent finished the row
+        bcc TileLoop            ; Continue.
 
-TileLoopEnd:
-        pla                             ; Pop row pointer.
-        lda $01, S                      ; Increment row index
-        inc
-        sta $01, S
-
-        cmp #$20                        ; if row < 32
-        bcc RowLoop
-
-        ; End of RowLoop
-
-        pla                             ; Pop row index
         rts
 .endproc
 
