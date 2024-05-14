@@ -60,10 +60,3 @@ V_INC_1 = $80 ;vram address +1
 
 VRAM_TILES = $0000
 VRAM_TILEMAP = $6000
-
-
-; Constants
-UP_BUTTON       = $0800
-DOWN_BUTTON     = $0400
-LEFT_BUTTON     = $0200
-RIGHT_BUTTON    = $0100

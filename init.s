@@ -21,12 +21,10 @@
         jsr DMA_Tiles
         jsr DMA_Palette
         jsr InitPlayfield
+        jsr InitInput
 
         ldx #$4243              ; Random seed
         stx RandomSeed
-
-        ldx #$0000
-        stx PrevInput
 
         A16
         jsr RandomizeActive
