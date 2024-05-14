@@ -34,7 +34,7 @@ class Shape:
             max(cols),
         )
 
-    def _center(self) -> tuple[float, float]:
+    def center(self) -> tuple[float, float]:
         minRow, minCol, maxRow, maxCol = self._boundingbox()
 
         # The side length of a square surrounding the shape. Assumes shapes are
@@ -48,7 +48,7 @@ class Shape:
         return (centerRow, centerCol)
 
     def rotate(self, count) -> "Shape":
-        centerRow, centerCol = self._center()
+        centerRow, centerCol = self.center()
 
         centered = [(row - centerRow, col - centerCol) for row, col in self.offsets]
         rotated = centered
@@ -322,7 +322,17 @@ def allShapes() -> list[ColoredShape]:
         i %= 30
         tile = i % 5 + 2
         palette = i // 5
-        res.append(ColoredShape(color=(palette << 10) | tile, shape=shape))
+        color = (palette << 10) | tile
+
+        centerRow, centerCol = shape.center()
+        centered = Shape(
+            offsets=[
+                (row - int(centerRow), col - int(centerCol))
+                for row, col in shape.offsets
+            ]
+        )
+
+        res.append(ColoredShape(color=color, shape=centered))
     return res
 
 
