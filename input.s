@@ -7,6 +7,11 @@ RIGHT_BUTTON    = $0100
 
 DIR_BUTTON      = LEFT_BUTTON | RIGHT_BUTTON | DOWN_BUTTON
 
+INPUT_ROTATE    = $8000
+INPUT_COUNTER   = $4000
+INPUT_D_HELD    = $2000
+
+
 D_PAD_PRESSED   = $1000
 D_PAD_HELD      = $2000
 
@@ -46,36 +51,45 @@ WaitForJoypad:
     bne WaitForJoypad               ; ...if not, wait a bit more
 
     lda JOY1L                       ; Read controller status
-    pha                             ; ... and push it onto the stack.
 
-    and PrevInput
+    bit #DIR_BUTTON                  ; Check if any direction button is pressed.
+    beq MoveEnd
 
-    bit #RIGHT_BUTTON               ; If right is pressed, move right, etc.
-    bne RightStillHeld
+    ; Push a move delta onto the stack based on which button is pushed.
+    bit #LEFT_BUTTON
+    bne LeftPressed
 
-    lda $01, S
-    bit #RIGHT_BUTTON               ; Held on this frame but not previously
-    bne RightNewlyPressed
-
-    lda PrevInput
     bit #RIGHT_BUTTON
-    bne RightReleased
+    bne RightPressed
 
-    ; Neither pressed nor released.
-    jmp MoveEnd
+    ; Down must have been pressed.
+    pea $20
+    jmp DeltaPushed
 
-RightStillHeld:
+RightPressed:
+    pea $0001
+    jmp DeltaPushed
 
+LeftPressed:
+    pea -1
+    
+DeltaPushed:
+    lda PrevInput                   ; Check if any was pressed last frame.
+    bit #DIR_BUTTON
+    beq NewlyPressed
+
+    ; If here, a dir button is being held.
     lda DasTimer
     beq DoDas
 
     dec
     sta DasTimer
 
-    jmp MoveEnd
-DoDas:
+    pla
 
-    pea 1
+    jmp MoveEnd
+
+DoDas:
     jsr TryMove
     pla
 
@@ -84,9 +98,7 @@ DoDas:
 
     jmp MoveEnd
 
-RightNewlyPressed:
-
-    pea 1
+NewlyPressed:
     jsr TryMove
     pla
 
@@ -94,11 +106,10 @@ RightNewlyPressed:
     sta DasTimer
 
 
-    jmp MoveEnd
+MoveEnd:
+    lda JOY1L                       ; Read controller status
+    sta PrevInput                   ; Store it in PrevInput
 
-RightReleased:
-
-    jmp MoveEnd
 
 
     ; lda PrevInput                   ; Load last frame's status.
@@ -147,90 +158,10 @@ RightReleased:
 ;         jsr TryRotate
 ;         jmp MoveEnd
 
-MoveEnd:
-    pla                             ; Pop controller input
-    sta PrevInput                   ; Store it in PrevInput
+; MoveEnd:
+
+    ; pla                             ; Pop controller input
+    ; sta PrevInput                   ; Store it in PrevInput
     rts
 
-.endproc
-
-.proc ReadInput
-    .a16
-
-    ; read joypad 1
-    ; check whether joypad is ready
-WaitForJoypad:
-    lda HVBJOY                      ; get joypad status
-    and #$0001                      ; check whether joypad still reading...
-    bne WaitForJoypad               ; ...if not, wait a bit more
-
-    lda JOY1L                       ; Read controller status
-
-    bit DIR_BUTTON                  ; Check if any direction button is pressed.
-    beq NoDirButton
-
-    ; Push a move delta onto the stack based on which button is pushed.
-    bit LEFT_BUTTON
-    bne LeftPressed
-
-    bit RIGHT_BUTTON
-    bne RightPressed
-
-    ; Down must have been pressed.
-    pea $20
-    jmp DeltaPushed
-
-RightPressed:
-    pea $0001
-    jmp DeltaPushed
-
-LeftPressed:
-    pea -1
-    
-DeltaPushed:
-    lda PrevInput                   ; Check if any was pressed last frame.
-    bit DIR_BUTTON
-    beq NewlyPressed
-
-    ; If here, a dir button is being held.
-    lda DasTimer
-    beq DoDas
-
-    dec
-    sta DasTimer
-
-    jmp MoveEnd
-DoDas:
-
-    pea 1
-    jsr TryMove
-    pla
-
-    lda #DAS_REPEAT
-    sta DasTimer
-
-    jmp MoveEnd
-
-
-
-    pha                             ; ... and push it onto the stack.
-
-    and PrevInput
-
-    bit #RIGHT_BUTTON               ; If right is pressed, move right, etc.
-    bne RightStillHeld
-
-    lda $01, S
-    bit #RIGHT_BUTTON               ; Held on this frame but not previously
-    bne RightNewlyPressed
-
-    lda PrevInput
-    bit #RIGHT_BUTTON
-    bne RightReleased
-
-MoveEnd:
-    lda JOY1L                       ; Read controller status
-    sta PrevInput                   ; Store it in PrevInput
-
-    rts
 .endproc
