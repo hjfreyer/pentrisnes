@@ -5,8 +5,21 @@ DOWN_BUTTON     = $0400
 LEFT_BUTTON     = $0200
 RIGHT_BUTTON    = $0100
 
+DIR_BUTTON      = LEFT_BUTTON | RIGHT_BUTTON | DOWN_BUTTON
+
+D_PAD_PRESSED   = $1000
+D_PAD_HELD      = $2000
+
+; PRE_HELD        
+
+DAS_INITIAL_DELAY  = $0010
+DAS_REPEAT      = $0006
+
 .BSS
 PrevInput:      .res 2
+; ButtonHeld      .res 2
+DasTimer:         .res 2
+; DasRepeat       .res 2
 
 .CODE
 
@@ -14,67 +27,210 @@ PrevInput:      .res 2
     .a8
 
     stz PrevInput
+    ; stz ButtonHeld
+
+    ; lda 
 
     rts
 .endproc
 
 
 .proc DoInput
-        .a16
+    .a16
 
-        ; read joypad 1
-        ; check whether joypad is ready
+    ; read joypad 1
+    ; check whether joypad is ready
 WaitForJoypad:
-        lda HVBJOY                      ; get joypad status
-        and #$0001                      ; check whether joypad still reading...
-        bne WaitForJoypad               ; ...if not, wait a bit more
+    lda HVBJOY                      ; get joypad status
+    and #$0001                      ; check whether joypad still reading...
+    bne WaitForJoypad               ; ...if not, wait a bit more
 
-        lda JOY1L                       ; Read controller status
-        pha                             ; ... and push it onto the stack.
+    lda JOY1L                       ; Read controller status
+    pha                             ; ... and push it onto the stack.
 
-        lda PrevInput                   ; Load last frame's status.
-        eor #$ffff
-        and $01, S                      ; A = current status - last frame's status (i.e., new buttons)
+    and PrevInput
 
-        bit #RIGHT_BUTTON               ; If right is pressed, move right, etc.
-        bne MoveRight
+    bit #RIGHT_BUTTON               ; If right is pressed, move right, etc.
+    bne RightStillHeld
 
-        bit #LEFT_BUTTON
-        bne MoveLeft
+    lda $01, S
+    bit #RIGHT_BUTTON               ; Held on this frame but not previously
+    bne RightNewlyPressed
 
-        bit #DOWN_BUTTON
-        bne MoveDown
+    lda PrevInput
+    bit #RIGHT_BUTTON
+    bne RightReleased
 
-        bit #UP_BUTTON
-        bne MoveUp
+    ; Neither pressed nor released.
+    jmp MoveEnd
 
-        jmp MoveEnd
+RightStillHeld:
 
-MoveLeft:
-        pea -1
-        jsr TryMove
-        pla
-        jmp MoveEnd
+    lda DasTimer
+    beq DoDas
 
-MoveRight:
-        pea $0001
-        jsr TryMove
-        pla
-        jmp MoveEnd
+    dec
+    sta DasTimer
 
-MoveDown:
-        pea $20
-        jsr TryMove
-        pla
-        jmp MoveEnd
+    jmp MoveEnd
+DoDas:
 
-MoveUp:
-        jsr TryRotate
-        jmp MoveEnd
+    pea 1
+    jsr TryMove
+    pla
+
+    lda #DAS_REPEAT
+    sta DasTimer
+
+    jmp MoveEnd
+
+RightNewlyPressed:
+
+    pea 1
+    jsr TryMove
+    pla
+
+    lda #DAS_INITIAL_DELAY
+    sta DasTimer
+
+
+    jmp MoveEnd
+
+RightReleased:
+
+    jmp MoveEnd
+
+
+    ; lda PrevInput                   ; Load last frame's status.
+    ; eor #$ffff
+    ; and $01, S                      ; A = current status - last frame's status (i.e., new buttons)
+
+    ; bit #RIGHT_BUTTON               ; If right is pressed, move right, etc.
+    ; bne MoveRight
+
+    ; lda #INIT_DAS_DELAY
+
+
+; MoveRight:
+
+
+        ; bit #LEFT_BUTTON
+        ; bne MoveLeft
+
+        ; bit #DOWN_BUTTON
+        ; bne MoveDown
+
+        ; bit #UP_BUTTON
+        ; bne MoveUp
+
+        ; jmp MoveEnd
+
+; MoveLeft:
+;         pea -1
+;         jsr TryMove
+;         pla
+;         jmp MoveEnd
+
+; MoveRight:
+;         pea $0001
+;         jsr TryMove
+;         pla
+;         jmp MoveEnd
+
+; MoveDown:
+;         pea $20
+;         jsr TryMove
+;         pla
+;         jmp MoveEnd
+
+; MoveUp:
+;         jsr TryRotate
+;         jmp MoveEnd
 
 MoveEnd:
-        pla                             ; Pop controller input
-        sta PrevInput                   ; Store it in PrevInput
-        rts
+    pla                             ; Pop controller input
+    sta PrevInput                   ; Store it in PrevInput
+    rts
 
+.endproc
+
+.proc ReadInput
+    .a16
+
+    ; read joypad 1
+    ; check whether joypad is ready
+WaitForJoypad:
+    lda HVBJOY                      ; get joypad status
+    and #$0001                      ; check whether joypad still reading...
+    bne WaitForJoypad               ; ...if not, wait a bit more
+
+    lda JOY1L                       ; Read controller status
+
+    bit DIR_BUTTON                  ; Check if any direction button is pressed.
+    beq NoDirButton
+
+    ; Push a move delta onto the stack based on which button is pushed.
+    bit LEFT_BUTTON
+    bne LeftPressed
+
+    bit RIGHT_BUTTON
+    bne RightPressed
+
+    ; Down must have been pressed.
+    pea $20
+    jmp DeltaPushed
+
+RightPressed:
+    pea $0001
+    jmp DeltaPushed
+
+LeftPressed:
+    pea -1
+    
+DeltaPushed:
+    lda PrevInput                   ; Check if any was pressed last frame.
+    bit DIR_BUTTON
+    beq NewlyPressed
+
+    ; If here, a dir button is being held.
+    lda DasTimer
+    beq DoDas
+
+    dec
+    sta DasTimer
+
+    jmp MoveEnd
+DoDas:
+
+    pea 1
+    jsr TryMove
+    pla
+
+    lda #DAS_REPEAT
+    sta DasTimer
+
+    jmp MoveEnd
+
+
+
+    pha                             ; ... and push it onto the stack.
+
+    and PrevInput
+
+    bit #RIGHT_BUTTON               ; If right is pressed, move right, etc.
+    bne RightStillHeld
+
+    lda $01, S
+    bit #RIGHT_BUTTON               ; Held on this frame but not previously
+    bne RightNewlyPressed
+
+    lda PrevInput
+    bit #RIGHT_BUTTON
+    bne RightReleased
+
+MoveEnd:
+    lda JOY1L                       ; Read controller status
+    sta PrevInput                   ; Store it in PrevInput
+
+    rts
 .endproc
