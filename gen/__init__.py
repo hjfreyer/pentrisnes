@@ -147,12 +147,21 @@ def bitplane_to_rows(bp: list[list[int]]) -> list[int]:
 
 def playfield() -> bytes:
     tiles = []
+
+    WIDTH = 12
+    HEIGHT = 22
+
     for row in range(32):
         for col in range(32):
-            if col < 12 and row < 22:
+            if 16 < col:
+                tiles.append(0)
+            elif HEIGHT <= row:
+                tiles.append(1)
+            elif 1 <= col < WIDTH + 1: 
                 tiles.append(0)
             else:
                 tiles.append(1)
+
     return b"".join(struct.pack("<H", t) for t in tiles)
 
 

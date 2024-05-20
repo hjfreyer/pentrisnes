@@ -139,7 +139,7 @@ TileLoop:
 NextTile:
         iny                             ; y += 2
         iny
-        cpy #$40                        ; if y < 64
+        cpy #$20                        ; if y < 32
         bcc TileLoop                    ; continue row loop
 
         rts                             ; Return when done.
@@ -217,7 +217,7 @@ WriteZero:
 NextTile:
         iny
         iny
-        cpy #$0040              ; If we havent finished the row
+        cpy #$0020              ; If we havent finished the row
         bcc TileLoop            ; Continue.
 
         rts
