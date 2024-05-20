@@ -28,11 +28,13 @@
         ; .byte $42, $00          ; debugger breakpoint
 
         jsr ClearActive
+        jsr ClearPreview
 
         jsr DoGravity
         jsr DoInput
 
         jsr DrawActive
+        jsr DrawPreview
 
         jmp GameLoop
 .endproc
@@ -273,6 +275,58 @@ NextTile:
         clc
         adc #TilemapMirror
         pha 
+
+        jsr DrawShape
+
+        pla                     ; Clear stack.
+        pla
+        pla                     
+
+        rts
+.endproc
+
+.proc DrawPreview
+        .a16
+        lda NextShape           ; Load offset into ShapeData
+        asl                     ; Shift left 4 - 16 bytes per shape.
+        asl
+        asl
+        asl
+        tax
+
+        lda ShapeData, x        ; Get the shape's color.
+        pha                     ; Push it onto the stack.
+
+        txa
+        clc
+        adc #(ShapeData+2)      ; Push pointer to shape data.
+        pha
+
+        pea PIECE_PREVIEW_PTR   ; The place to draw the preview.
+
+        jsr DrawShape
+
+        pla                     ; Clear stack.
+        pla
+        pla
+
+        rts
+.endproc
+
+.proc ClearPreview
+        .a16
+        pea $0000               ; Push 0 color.
+
+        lda NextShape           ; Load offset into ShapeData
+        asl                     ; Shift left 4 - 16 bytes per shape.
+        asl
+        asl
+        asl
+        clc
+        adc #(ShapeData+2)      ; Add base of ShapeData (+2 to skip color)
+        pha
+
+        pea PIECE_PREVIEW_PTR   ; The place where the preview was drawn.
 
         jsr DrawShape
 

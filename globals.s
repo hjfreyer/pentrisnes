@@ -24,3 +24,4 @@ GravityCounter: .res 2
 RandomSeed:     .res 2
 
 SPAWN_OFFSET = $0026
+PIECE_PREVIEW_PTR = TilemapMirror + $00B0
