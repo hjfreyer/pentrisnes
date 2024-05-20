@@ -27,12 +27,9 @@ DasTimer:         .res 2
 .CODE
 
 .proc InitInput
-    .a8
+    .a16
 
     stz PrevInput
-    ; stz ButtonHeld
-
-    ; lda 
 
     rts
 .endproc

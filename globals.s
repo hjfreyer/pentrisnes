@@ -17,6 +17,7 @@ PlayFieldTemplate_End:
 TilemapMirror:
                 .res 2 * 32 * 32
 TilemapMirror_End:
+NextShape:      .res 2
 ActiveShape:    .res 2
 ActiveOffset:   .res 2
 GravityCounter: .res 2

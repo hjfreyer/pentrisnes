@@ -27,19 +27,12 @@
         wai                     ; wait for NMI / V-Blank
         ; .byte $42, $00          ; debugger breakpoint
 
-        ; Clear previously active tile.
-        lda #$0000
-        pha
-        jsr DrawActive
-        pla
+        jsr ClearActive
 
         jsr DoGravity
         jsr DoInput
 
-        lda #$FFFF                      ; Draw the active tile in red.
-        pha
         jsr DrawActive
-        pla
 
         jmp GameLoop
 .endproc
@@ -71,9 +64,7 @@
         sbc #$20                     
         sta ActiveOffset
 
-        pea $FFFF                       ; Add the active shape to the background.
-        jsr DrawActive
-        pla
+        jsr DrawActive                  ; Add the active shape to the background.
 
         jsr RandomizeActive
         lda #SPAWN_OFFSET               ; And reset the offset.
@@ -232,10 +223,6 @@ NextTile:
         rts
 .endproc
 
-; A = 16
-;
-; Parameters
-; - fillMask (word): Mask the shape's tile with this before drawing.
 .proc DrawActive
         .a16
         lda ActiveShape         ; Load offset into ShapeData
@@ -245,23 +232,77 @@ NextTile:
         asl
         tax
 
-        lda $03, S              ; Load fillMask.
-        and ShapeData, x        ; And-in the shape's tile.
+        lda ShapeData, x        ; Get the shape's color.
         pha                     ; Push it onto the stack.
 
-
-.repeat 7, Block                ; For each of 7 blocks (after the tile)...
-        lda ShapeData + 2 * Block + 2, X    ; Get the offset for that block.
+        txa
         clc
-        adc ActiveOffset        ; Add the center of the shape
-        asl                     ; Multiply by 2 to get memory offset
-        tay                     ; Y = block location
+        adc #(ShapeData+2)      ; Push pointer to shape data.
+        pha
 
-        lda $01, S              ; Set block to the tile on the stack.
-        sta TilemapMirror, Y
-.endrep
+        lda ActiveOffset        ; Add the center of the shape
+        asl                     ; Multiply by 2 to get memory offset
+        clc
+        adc #TilemapMirror      ; Make it into the origin pointer.
+        pha 
+
+        jsr DrawShape
 
         pla                     ; Clear stack.
+        pla
+        pla
+
+        rts
+.endproc
+
+.proc ClearActive
+        .a16
+        pea $0000               ; Push 0 color.
+
+        lda ActiveShape         ; Load offset into ShapeData
+        asl                     ; Shift left 4 - 16 bytes per shape.
+        asl
+        asl
+        asl
+        clc
+        adc #(ShapeData+2)      ; Add base of ShapeData (+2 to skip color)
+        pha
+
+        lda ActiveOffset        ; Add the center of the shape
+        asl                     ; Multiply by 2 to get memory offset
+        clc
+        adc #TilemapMirror
+        pha 
+
+        jsr DrawShape
+
+        pla                     ; Clear stack.
+        pla
+        pla                     
+
+        rts
+.endproc
+
+; Stack
+;  $07: Color to draw.
+;  $05: Pointer to the start of the shape.
+;  $03: Pointer to zero tile.
+.proc DrawShape
+        .a16
+        Color  = $07
+        Shape  = $05
+        Origin = $03
+
+.repeat 7, Block                ; For each of 7 blocks
+        ldy #(2 * Block)
+        lda (Shape, S), Y       ; A = Block offset
+        asl                     ; Double to get pointer offset.
+        tay
+
+        lda Color, S            ; Load the color
+        sta (Origin, S), Y      ; Store it at the destination (Origin + 2*Offset)
+.endrep
+
         rts
 .endproc
 
@@ -388,6 +429,8 @@ SkipXor:
 
 .proc RandomizeActive 
         .a16
+        lda NextShape
+        sta ActiveShape
 
 Reroll:
         jsr GetRandom
@@ -397,7 +440,7 @@ Reroll:
 
         asl
         asl
-        sta ActiveShape
+        sta NextShape
 
         rts
 .endproc
