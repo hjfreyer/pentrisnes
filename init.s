@@ -26,10 +26,8 @@
         stx RandomSeed
 
         A16
+        jsr InitGame
         jsr InitInput
-        stz NextShape
-        jsr RandomizeActive
-        jsr RandomizeActive
         A8
 
         ldx #60

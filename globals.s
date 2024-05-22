@@ -1,5 +1,5 @@
 
-.segment "SPRITEDATA"
+.RODATA
 SpriteData: .incbin "out/sprites.vra"
 SpriteData_End:
 ColorData:  .incbin "out/colors.pal"

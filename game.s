@@ -17,7 +17,28 @@
 .include "init.s"
 .include "header.s"
 
+.BSS
+Score: .res 2
+
+.RODATA
+ScoreTable:
+        .word $0000             ; Score to add based on number of lines cleared.
+        .word $0001             ; = 2^N - 1 
+        .word $0003
+        .word $0007
+        .word $000F
+        .word $001F
+
 .CODE
+
+.proc InitGame
+        .a16
+        stz Score
+        stz NextShape
+        jsr RandomizeActive
+        jsr RandomizeActive
+        rts
+.endproc
 
 ;-------------------------------------------------------------------------------
 ;   After the ResetHandler will jump to here
@@ -84,9 +105,11 @@ SkipGravity:
 .proc DoLineClears
         .a16
         ; .byte $42, $00          ; debugger breakpoint
-
+        pea $0000                       ; Number of rows cleared.
         pea TilemapMirror               ; Push row pointer onto the stack.
 
+        RowClears = $03
+        RowPtr    = $01
 RowLoop:
         pha                             ; Stack space for CheckRow result.
         jsr CheckRow
@@ -95,6 +118,10 @@ RowLoop:
         beq NextRow
 
         ; If it made it here, the line should be cleared.
+        lda RowClears, S                ; Increment row clear count.
+        inc
+        sta RowClears, S
+
         jsr Downshift
         
 NextRow:
@@ -109,6 +136,14 @@ NextRow:
         ; End of RowLoop
 
         pla                             ; Pop row pointer
+        pla                             ; Pop row clear counter.
+        asl                             ; Double it to get an offset into the score table.
+        tay
+        lda ScoreTable, Y               ; Look up the amount to add to the score.
+        clc                             ; ... and add it to the score.
+        adc Score               
+        sta Score
+
         rts
 .endproc
 
