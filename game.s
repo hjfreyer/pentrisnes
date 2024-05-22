@@ -57,6 +57,8 @@ ScoreTable:
         jsr DrawActive
         jsr DrawPreview
 
+        jsr DrawScore
+
         jmp GameLoop
 .endproc
 ;-------------------------------------------------------------------------------
@@ -394,6 +396,27 @@ NextTile:
 
         rts
 .endproc
+
+
+.proc DrawScore
+        .a16
+        lda Score
+
+.repeat 4, Digit
+        pha                                     ; Preserve the remaining score.
+        and #$000F                              ; Get just the last 4 bits (LSD)
+        clc
+        adc #ZERO_TILE_OFFSET                   ; Add to the tile for zero.
+        sta DRAW_SCORE_PTR + 2 * (3 - Digit)    ; Draw to the corresponding tile.
+        pla                                     ; Restore the remaining score.
+
+.repeat 4                                       ; Shift right 4 to get next digit.
+        lsr
+.endrep
+.endrep
+        rts
+.endproc
+
 
 ; A = 16
 ;
