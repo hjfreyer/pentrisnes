@@ -24,10 +24,10 @@ Score: .res 2
 ScoreTable:
         .word $0000             ; Score to add based on number of lines cleared.
         .word $0001             ; = 2^N - 1 
-        .word $0003
+        .word $0003             ; Stored in BCD
         .word $0007
-        .word $000F
-        .word $001F
+        .word $0015
+        .word $0031
 
 .CODE
 
@@ -141,10 +141,16 @@ NextRow:
         pla                             ; Pop row clear counter.
         asl                             ; Double it to get an offset into the score table.
         tay
+
+        sep #$08                        ; Enable decimal mode.	
+
         lda ScoreTable, Y               ; Look up the amount to add to the score.
+
         clc                             ; ... and add it to the score.
         adc Score               
         sta Score
+
+        rep #$08                        ; Disable decimal mode.	
 
         rts
 .endproc
