@@ -1,6 +1,13 @@
 
+
+;----- Assembler Directives ----------------------------------------------------
+.p816                           ; tell the assembler this is 65816 code
+.a16
+.i16
+;-------------------------------------------------------------------------------
+
+
 .proc DrawActive
-        .a16
         lda ActiveShape         ; Load offset into ShapeData
         asl                     ; Shift left 4 - 16 bytes per shape.
         asl
@@ -32,7 +39,6 @@
 .endproc
 
 .proc ClearActive
-        .a16
         pea $0000               ; Push 0 color.
 
         lda ActiveShape         ; Load offset into ShapeData
@@ -60,7 +66,6 @@
 .endproc
 
 .proc DrawPreview
-        .a16
         lda NextShape           ; Load offset into ShapeData
         asl                     ; Shift left 4 - 16 bytes per shape.
         asl
@@ -88,7 +93,6 @@
 .endproc
 
 .proc ClearPreview
-        .a16
         pea $0000               ; Push 0 color.
 
         lda NextShape           ; Load offset into ShapeData
@@ -116,7 +120,6 @@
 ;  $05: Pointer to the start of the shape.
 ;  $03: Pointer to zero tile.
 .proc DrawShape
-        .a16
         Color  = $07
         Shape  = $05
         Origin = $03
@@ -136,7 +139,6 @@
 
 
 .proc DrawScore
-        .a16
         lda Score
 
 .repeat 4, Digit

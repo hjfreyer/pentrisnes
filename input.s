@@ -1,4 +1,10 @@
 
+;----- Assembler Directives ----------------------------------------------------
+.p816                           ; tell the assembler this is 65816 code
+.a16
+.i16
+;-------------------------------------------------------------------------------
+
 ; Constants
 UP_BUTTON       = $0800
 DOWN_BUTTON     = $0400
@@ -14,21 +20,19 @@ INPUT_STATUS_COUNTER    = $4000
 INPUT_STATUS_D_HELD     = $2000
 INPUT_STATUS_D_PRESSED  = $1000
 
-D_PAD_PRESSED   = $1000
-D_PAD_HELD      = $2000
+D_PAD_PRESSED           = $1000
+D_PAD_HELD              = $2000
 
-DAS_INITIAL_DELAY  = $0010
-DAS_REPEAT      = $0006
+DAS_INITIAL_DELAY       = $0010
+DAS_REPEAT              = $0006
 
 .BSS
-PrevInput:      .res 2
-DasTimer:         .res 2
+PrevInput:              .res 2
+DasTimer:               .res 2
 
 .CODE
 
 .proc InitInput
-    .a16
-
     stz PrevInput
 
     rts
@@ -36,8 +40,6 @@ DasTimer:         .res 2
 
 
 .proc DoInput
-    .a16
-    
     pha             ; InputStatus
     pha             ; Move Delta
 
@@ -102,7 +104,6 @@ TranslateEnd:
 ; - $05  Input Status out (See INPUT_STATUS_*)
 ; - $03  Effective Move delta out.
 .proc ReadInput
-    .a16
     InputStatus = $05
     MoveDelta  = $03
 

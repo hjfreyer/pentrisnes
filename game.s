@@ -6,20 +6,36 @@
 .include "mmap.s"
 .include "macros.s"
 .include "out/consts.s"
+.include "rodata.s"
 
 ;----- Assembler Directives ----------------------------------------------------
 .p816                           ; tell the assembler this is 65816 code
-.smart
+.a16
+.i16
 ;-------------------------------------------------------------------------------
 
 .include "graphics.s"
-.include "globals.s"
 .include "input.s"
 .include "init.s"
 .include "header.s"
 
+
 .BSS
-Score: .res 2
+.res 32                             ; Make TilemapMirror not be at 0 to catch bugs.
+TilemapMirror:
+                        .res 2 * 32 * 32
+TilemapMirror_End:
+NextShape:              .res 2
+ActiveShape:            .res 2
+ActiveOffset:           .res 2
+GravityCounter:         .res 2
+RandomSeed:             .res 2
+Score:                  .res 2
+
+SPAWN_OFFSET            = $0026
+PIECE_PREVIEW_PTR       = TilemapMirror + $00B0
+ZERO_TILE_OFFSET        = $0007
+DRAW_SCORE_PTR          = TilemapMirror + $066C
 
 .RODATA
 ScoreTable:
@@ -33,7 +49,6 @@ ScoreTable:
 .CODE
 
 .proc InitGame
-        .a16
         stz Score
         stz NextShape
         jsr RandomizeActive
@@ -45,7 +60,6 @@ ScoreTable:
 ;   After the ResetHandler will jump to here
 ;-------------------------------------------------------------------------------
 .proc   GameLoop
-        .a16
         wai                     ; wait for NMI / V-Blank
         ; .byte $42, $00          ; debugger breakpoint
 
@@ -66,8 +80,6 @@ ScoreTable:
 
 ; Decrease gravity counter. If zero, reset and move block down.
 .proc DoGravity
-        .a16
-
         lda GravityCounter
         dec                     ; Decrement and update GravityCounter
         sta GravityCounter
@@ -106,8 +118,6 @@ SkipGravity:
 
 
 .proc DoLineClears
-        .a16
-        ; .byte $42, $00          ; debugger breakpoint
         pea $0000                       ; Number of rows cleared.
         pea TilemapMirror               ; Push row pointer onto the stack.
 
@@ -161,7 +171,6 @@ NextRow:
 ;   $03 - (out) 1 if row should be cleared (contains no blanks and at least one destructible).
 ;   $01 - RTA.
 .proc CheckRow
-        .a16
         RowPointer = $05
         ClearableOut = $03
 
@@ -201,7 +210,6 @@ FoundBlank:
 ; Stack
 ;   $03 - Pointer to bottom row to shift into.
 .proc Downshift
-        .a16
         lda $03, S                      ; Copy the dest row into our stack frame.
         pha
 
@@ -237,8 +245,6 @@ RowLoop:
 ;   03  Pointer to start of src row.
 ;   01  RTA
 .proc CopyRow
-        .a16
-
         Dest = $05
         Src = $03
 
@@ -274,7 +280,6 @@ NextTile:
 ;
 ; Zero flag indicates that there's no collision.
 .proc CheckCollision
-        .a16
         lda ActiveShape         ; Load offset into ShapeData
         asl                     ; Shift left 4 - 16 bytes per shape.
         asl
@@ -305,7 +310,6 @@ Conflict:
 ;
 ; Trashes registers: A, X
 .proc TryMove
-        .a16
         phd                             ; push Direct Register to stack
         tsc                             ; transfer Stack to... (via Accumulator)
         tcd                             ; ...Direct Register.
@@ -332,8 +336,6 @@ SkipReset:
 .endproc
 
 .proc TryRotate
-        .a16
-
         lda ActiveShape         ; Get active shape
         pha                     ; Save in case we revert.
         inc
@@ -392,7 +394,6 @@ SkipXor:
 .endproc
 
 .proc RandomizeActive 
-        .a16
         lda NextShape
         sta ActiveShape
 
