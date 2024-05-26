@@ -131,3 +131,36 @@ Loop:
         rti
 .endproc
 ;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+;   Will be called during V-Blank
+;-------------------------------------------------------------------------------
+.proc   NMIHandler
+        lda RDNMI               ; read NMI status, acknowledge NMI
+        A8
+
+        ; Update tilemap based on mirror
+
+        ldx #VRAM_TILEMAP
+        stx VMADDL              ; set the VRAM address to VRAM_TILEMAP
+
+        lda #V_INC_1
+        sta VMAINC              ; increment VRAM address by 1 when writing to VMDATAH
+
+	lda #1
+	sta DMAP0 ; transfer mode, 2 registers 1 write
+	
+        lda #<VMDATAL  ; $2118
+	sta BBAD0 ; destination, vram data
+	ldx #.loword(TilemapMirror)
+	stx A1T0L ; source
+	lda #^TilemapMirror
+	sta A1T0B ; bank
+	ldx #(TilemapMirror_End-TilemapMirror)
+	stx DAS0L ; length
+	lda #1
+	sta MDMAEN ; $420b start dma, channel 0
+
+        A16
+        rti
+.endproc
