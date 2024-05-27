@@ -144,6 +144,13 @@ Loop:
         lda RDNMI               ; read NMI status, acknowledge NMI
         A8
 
+        lda InGameLogic         ; Panic if we were in the middle of game logic.
+        beq DontPanic
+
+        brk
+
+DontPanic:
+
         ; Update tilemap based on mirror
 
         ldx #VRAM_TILEMAP

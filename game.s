@@ -31,6 +31,8 @@ ActiveOffset:           .res 2
 GravityCounter:         .res 2
 RandomSeed:             .res 2
 Score:                  .res 2
+RowSummary:             .res 2 * 32
+InGameLogic:            .res 2
 
 SPAWN_OFFSET            = $0026
 PIECE_PREVIEW_PTR       = TilemapMirror + $00B0
@@ -51,6 +53,7 @@ ScoreTable:
 .proc InitGame
         stz Score
         stz NextShape
+        stz InGameLogic
         jsr RandomizeActive
         jsr RandomizeActive
         rts
@@ -62,6 +65,8 @@ ScoreTable:
 .proc   GameLoop
         wai                     ; wait for NMI / V-Blank
         ; .byte $42, $00          ; debugger breakpoint
+        lda #$0001              ; Indicate we're in the middle of game logic.
+        sta InGameLogic         
 
         jsr ClearActive
         jsr ClearPreview
@@ -73,6 +78,15 @@ ScoreTable:
         jsr DrawPreview
 
         jsr DrawScore
+
+        lda InGameLogic         ; Check InGameLogic is still 1, or panic.
+        cmp #$0001
+        beq DontPanic
+
+        brk
+
+DontPanic:
+        stz InGameLogic         ; Clear InGameLogic.
 
         jmp GameLoop
 .endproc
@@ -117,51 +131,40 @@ SkipGravity:
 .endproc
 
 
+; Checks for potential line clears after locking down and performs
+; them, if necessary.
 .proc DoLineClears
-        pea $0000                       ; Number of rows cleared.
+        jsr CheckRows
+        jsr IncreaseScore
+        jsr ComputeDests
+        jsr CopyRows
+        rts
+.endproc
+
+; Sets RowSummary[Row] to 1 if the row is clearable, otherwise 0.
+.proc CheckRows 
         pea TilemapMirror               ; Push row pointer onto the stack.
 
-        RowClears = $03
         RowPtr    = $01
+        ldy #$0000
 RowLoop:
         pha                             ; Stack space for CheckRow result.
         jsr CheckRow
-        pla
+        pla                             ; Load result into A.
+        sta RowSummary, Y               ; Store result.
 
-        beq NextRow
-
-        ; If it made it here, the line should be cleared.
-        lda RowClears, S                ; Increment row clear count.
-        inc
-        sta RowClears, S
-
-        jsr Downshift
-        
-NextRow:
-        lda $01, S                      ; Advance row pointer
+        lda RowPtr, S                   ; Advance row pointer.
         clc
         adc #$0040
-        sta $01, S
+        sta RowPtr, S
+
+        iny                             ; ... and y
+        iny
 
         cmp #TilemapMirror_End          ; if row < 32
         bcc RowLoop
 
-        ; End of RowLoop
-
-        pla                             ; Pop row pointer
-        pla                             ; Pop row clear counter.
-        asl                             ; Double it to get an offset into the score table.
-        tay
-
-        sep #$08                        ; Enable decimal mode.	
-
-        lda ScoreTable, Y               ; Look up the amount to add to the score.
-
-        clc                             ; ... and add it to the score.
-        adc Score               
-        sta Score
-
-        rep #$08                        ; Disable decimal mode.	
+        pla                             ; Clear stack.
 
         rts
 .endproc
@@ -171,8 +174,10 @@ NextRow:
 ;   $03 - (out) 1 if row should be cleared (contains no blanks and at least one destructible).
 ;   $01 - RTA.
 .proc CheckRow
-        RowPointer = $05
-        ClearableOut = $03
+        phy                             ; Save state of Y.
+
+        RowPointer = $07
+        ClearableOut = $05
 
         lda #$0000                      ; Result = 0
         sta ClearableOut, S
@@ -197,47 +202,119 @@ NextTile:
         cpy #$20                        ; if y < 32
         bcc TileLoop                    ; continue row loop
 
-        rts                             ; Return when done.
+        bra Return                      ; Return when done.
 
 FoundBlank:
         ; If we found a blank, it's not clearable no matter what.
         lda #$0000
         sta ClearableOut, S
 
+Return:
+        ply                             ; Restore Y
         rts
 .endproc
 
-; Stack
-;   $03 - Pointer to bottom row to shift into.
-.proc Downshift
-        lda $03, S                      ; Copy the dest row into our stack frame.
-        pha
+; Increase the current score based on row clears. Assumes RowSummary[row] 
+; contains a 1 for rows that should be cleared, and 0 otherwise.
+.proc IncreaseScore
+        lda #$0000                      ; First, sum up the number of cleared rows.
 
-        phd                             ; push Direct Register to stack
-        tsc                             ; transfer Stack to... (via Accumulator)
-        tcd                             ; ...Direct Register.
+        ldy #$0000
+Loop:
+        clc
+        adc RowSummary, Y
 
-        DestRow = $03
-RowLoop:
-        lda DestRow                     ; Push DestRow
-        pha 
-        sec
-        sbc #$40
-        pha                             ; Push SrcRow = DestRow - $40
+        iny
+        iny
+        cpy #$0040
+        bcc Loop
 
-        jsr CopyRow                     ; CopyRow
-        pla                             ; Pop SrcRow
-        sta DestRow                     ; DestRow = SrcRow
-        pla                             ; Pop old DestRow copy
+        ; Then, add the appropriate amount to the score based on the number of clears.
 
-        lda DestRow                     ; If DestRow is after the first row, continue.S
-        cmp #TilemapMirror + $40
-        bcs RowLoop
+        asl                             ; Double the number of cleared rows to 
+                                        ; get an offset into the score table.
+        tay
 
-        pld                             ; Reset direct page.
-        pla                             ; Pop DestRow
+        sep #$08                        ; Enable decimal mode.	
 
-        rts                             ; Return
+        lda ScoreTable, Y               ; Look up the amount to add to the score.
+
+        clc                             ; ... and add it to the score.
+        adc Score               
+        sta Score
+
+        rep #$08                        ; Disable decimal mode.	
+
+        rts
+.endproc
+
+; For each row, computes the (relative) "destination" row that
+; it should be copied into, and stores the result in RowSummary.
+; So, if RowSummary[R] = 0, then row R should be left alone.
+; If RowSummary[R] = 1, it should be copied one row down, etc.
+;
+; Assumes that RowSummary[R] begins with 1 for all clearable rows,
+; and 0 otherwise.
+.proc ComputeDests
+        lda #$0000              ; Cumulative sum
+
+        ldy #$003E              ; Loop from bottom to top.
+Loop:
+        ldx RowSummary, Y       ; Load whether the row is clearable.
+        phx                     ; ... and save it on the stack.
+
+        sta RowSummary, Y       ; RowSummary gets set to the current cumulative
+                                ; sum, _not_ counting the current row.
+
+        clc                     ; Add the current row's value to the sum, and 
+        adc $01, S              ; remove it from the stack.
+        plx
+
+        dey                     ; Advance to previous row.
+        dey
+
+        bpl Loop
+        rts
+.endproc
+
+; Copies rows according to offsets in RowSummaries. Assumes that ComputeDests
+; was just called.
+.proc CopyRows
+        ldy #$003E              ; Start from last row.
+Loop:
+        tya                     ; A = current row offset (not doubled, like usual)
+        lsr
+
+        clc                     ; Add the offset from RowSummary
+        adc RowSummary, Y
+
+.repeat 6                       ; A << 6 to get row pointer (64 bytes per row)
+        asl
+.endrep
+
+        clc                     ; Add TilemapMirror to get dest absolute pointer.
+        adc #TilemapMirror      
+        pha                     ; Push it onto the stack as an argument.
+
+        tya                     ; Reload Y. The src pointer will be based on it.
+.repeat 5                       ; Only shift 5 because Y is already doubled.
+        asl
+.endrep
+
+        clc                     ; Add base pointer.
+        adc #TilemapMirror
+        pha                     ; Push src.
+
+        jsr CopyRow
+
+        pla                     ; Clear arguments.
+        pla
+
+        dey                     ; Next row.
+        dey
+        bpl Loop
+
+        rts
 .endproc
 
 ; Stack:
@@ -245,8 +322,9 @@ RowLoop:
 ;   03  Pointer to start of src row.
 ;   01  RTA
 .proc CopyRow
-        Dest = $05
-        Src = $03
+        phy
+        Dest = $07
+        Src = $05
 
         ldy #$0000              ; Tile offset into row
 TileLoop:
@@ -272,6 +350,7 @@ NextTile:
         cpy #$0020              ; If we havent finished the row
         bcc TileLoop            ; Continue.
 
+        ply
         rts
 .endproc
 

@@ -28,6 +28,7 @@ def shapecolors():
         r, g, b = colorsys.hls_to_rgb(*hls)
         yield Color(convert(r), convert(g), convert(b))
 
+
 @dataclasses.dataclass
 class Color:
     r: int
@@ -52,7 +53,6 @@ class Palette:
         return b"".join(c.encode() for c in self.colors)
 
 
-
 def playfield() -> bytes:
     tiles = []
 
@@ -65,8 +65,31 @@ def playfield() -> bytes:
                 tiles.append(0)
             elif HEIGHT <= row:
                 tiles.append(1)
-            elif 1 <= col < WIDTH + 1: 
+            elif 1 <= col < WIDTH + 1:
                 tiles.append(0)
+            else:
+                tiles.append(1)
+
+    return b"".join(struct.pack("<H", t) for t in tiles)
+
+
+def centerwellfield() -> bytes:
+    tiles = []
+
+    WIDTH = 12
+    HEIGHT = 22
+
+    for row in range(32):
+        for col in range(32):
+            if 16 < col:
+                tiles.append(0)
+            elif HEIGHT <= row:
+                tiles.append(1)
+            elif 1 <= col < WIDTH + 1:
+                if 10 < row and col != 6:
+                    tiles.append(2)
+                else:
+                    tiles.append(0)
             else:
                 tiles.append(1)
 
@@ -88,7 +111,6 @@ def main():
         consts["PALLET_SIZE"] = len(p_encoded)
 
         pal_file.write(p_encoded)
-
 
     with (out_dir / "sprites.vra").open("wb") as f:
         f.write(sprites.all_sprites().encode())
