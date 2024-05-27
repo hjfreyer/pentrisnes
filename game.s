@@ -88,7 +88,7 @@ ScoreTable:
 DontPanic:
         stz InGameLogic         ; Clear InGameLogic.
 
-        jmp GameLoop
+        bra GameLoop
 .endproc
 ;-------------------------------------------------------------------------------
 
@@ -338,7 +338,7 @@ TileLoop:
 
         ; Otherwise, do the copy.
         sta (Dest, S), Y
-        jmp NextTile
+        bra NextTile
 
 WriteZero:
         lda #$0000

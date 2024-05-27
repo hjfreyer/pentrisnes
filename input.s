@@ -49,7 +49,7 @@ DasTimer:               .res 2
     lda $03, S      ; Load input status
     bit #INPUT_STATUS_ROTATE
     bne Rotate
-    jmp RotateEnd
+    bra RotateEnd
 
     ; TODO: Counter rotation.
 
@@ -66,14 +66,14 @@ RotateEnd:
     bit #INPUT_STATUS_D_HELD
     bne DoHeld
 
-    jmp TranslateEnd
+    bra TranslateEnd
 
 DoPressed:
     jsr TryMove             ; Try to move by the delta already on the stack.
 
     lda #DAS_INITIAL_DELAY  ; Reset DAS timer to initial delay.
     sta DasTimer
-    jmp TranslateEnd
+    bra TranslateEnd
 
 DoHeld:
     lda DasTimer        ; If the button is held and the DAS timer expired...
@@ -81,7 +81,7 @@ DoHeld:
 
     dec                 ; Otherwise decrement the timer and continue.
     sta DasTimer
-    jmp TranslateEnd
+    bra TranslateEnd
 
 DoDas:
     jsr TryMove         ; Try to move by the delta already on the stack.
@@ -127,13 +127,13 @@ WaitForJoypad:
     bne Rotate
     bit #A_BUTTON
     bne Counter
-    jmp RotationEnd
+    bra RotationEnd
 
 Rotate:
     lda InputStatus, S
     ora #INPUT_STATUS_ROTATE
     sta InputStatus, S
-    jmp RotationEnd
+    bra RotationEnd
 
 Counter:
     lda InputStatus, S
@@ -157,11 +157,11 @@ RotationEnd:
 
     ; Down must have been pressed.
     lda #$0020
-    jmp DeltaInA
+    bra DeltaInA
 
 RightPressed:
     lda #$0001
-    jmp DeltaInA
+    bra DeltaInA
 
 LeftPressed:
     lda #$FFFF
@@ -179,7 +179,7 @@ DeltaInA:
     ora #INPUT_STATUS_D_HELD
     sta InputStatus, S
 
-    jmp End
+    bra End
 
 NotHolding:
     lda InputStatus, S              ; Indicate pressing.
