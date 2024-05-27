@@ -57,7 +57,7 @@ def playfield() -> bytes:
     tiles = []
 
     WIDTH = 12
-    HEIGHT = 22
+    HEIGHT = 25
 
     for row in range(32):
         for col in range(32):

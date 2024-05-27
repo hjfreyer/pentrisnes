@@ -34,7 +34,7 @@ Score:                  .res 2
 RowSummary:             .res 2 * 32
 InGameLogic:            .res 2
 
-SPAWN_OFFSET            = $0026
+SPAWN_OFFSET            = $00A6
 PIECE_PREVIEW_PTR       = TilemapMirror + $00B0
 ZERO_TILE_OFFSET        = $0007
 DRAW_SCORE_PTR          = TilemapMirror + $066C
