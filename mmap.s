@@ -33,7 +33,7 @@ DAS0H       = $4306     ; DMA size register high, channel 0
 ;----- Memory Map WRAM ---------------------------------------------------------
 ; HOR_SPEED   = $0300     ; the horizontal speed
 ; VER_SPEED   = $0301     ; the vertical speed
-OAMMIRROR   = $0400     ; location of OAMRAM mirror in WRAM
+; OamMirror   = $0400     ; location of OAMRAM mirror in WRAM
 ;-------------------------------------------------------------------------------
 
 ; ;----- Game Constants ----------------------------------------------------------
@@ -46,7 +46,7 @@ OAMMIRROR   = $0400     ; location of OAMRAM mirror in WRAM
 ; SPRITE_SPEED    = $02   ; the sprites will move 2 pixel per frame
 ;     ; this makes the code a bit more readable
 ; SPRITE_SIZE     = $08   ; sprites are 8 by 8 pixel
-OAMMIRROR_SIZE  = $0220 ; OAMRAM can hold data for 128 sprites, 4 bytes each
+; OamMirror_SIZE  = $0220 ; OAMRAM can hold data for 128 sprites, 4 bytes each
 ;-------------------------------------------------------------------------------
 
 FULL_BRIGHT = $0f

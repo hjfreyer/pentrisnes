@@ -26,6 +26,7 @@
         jsr DMA_Tiles
         jsr DMA_Palette
         jsr InitPlayfield
+        jsr InitOamRam
 
         ldx #$4243              ; Random seed
         stx RandomSeed
@@ -57,7 +58,7 @@
 	lda #$60 ; bg1 map at VRAM address $6000
 	sta BG1SC ; $2107
 
-	lda #BG1_ON	; $01 = only bg 1 is active
+	lda #(BG1_ON | $10)	; $01 = only bg 1 is active
 	sta TM
         ; release forced blanking, set screen to full brightness
         lda #$0f
@@ -112,6 +113,40 @@
 .endproc
 
 
+.proc   DMA_OAMRAM
+        .a8
+        ; set up DMA channel 0 to transfer data to OAMRAM
+        lda #%00000010          ; set DMA channel 0
+        sta DMAP0
+        lda #$04                ; set destination to OAMDATA
+        sta BBAD0   
+        ldx OamMirror          ; get address of OAMRAM mirror
+        stx A1T0L               ; set low and high byte of address 
+        stz A1T0B               ; set bank to zero, since the mirror is in WRAM
+        ldx #(OamMirror_End - OamMirror)              ; set the number of bytes to transfer 
+        stx DAS0L
+
+        lda #$01                ; start DMA transfer 
+        sta MDMAEN
+
+        rts                     
+.endproc
+
+.proc InitOamRam
+        .a8
+        ldx #$0000
+        lda #$0000
+
+Loop:
+        sta OamMirror, X
+
+        inx
+        cpx #(OamMirror_End - OamMirror)
+        bcc Loop
+
+        rts
+.endproc
+
 .proc InitPlayfield
         .a8
 
@@ -127,6 +162,7 @@ Loop:
 
         rts
 .endproc
+
 
 ;-------------------------------------------------------------------------------
 ;   Is not used in this program
@@ -172,6 +208,8 @@ DontPanic:
 	stx DAS0L ; length
 	lda #1
 	sta MDMAEN ; $420b start dma, channel 0
+
+        jsr DMA_OAM
 
         A16
         rti

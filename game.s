@@ -25,6 +25,8 @@
 TilemapMirror:
                         .res 2 * 32 * 32
 TilemapMirror_End:
+OamMirror:              .res 128 * 4 + 32
+OamMirror_End:
 NextShape:              .res 2
 ActiveShape:            .res 2
 ActiveOffset:           .res 2
